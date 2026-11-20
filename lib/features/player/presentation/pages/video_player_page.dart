@@ -4,10 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:codecm/core/theme/app_colors.dart';
 import 'package:codecm/core/theme/app_typography.dart';
-import 'package:codecm/core/widgets/shimmer_loading.dart';
 import 'package:codecm/core/storage/persistent_storage.dart';
 import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/media/domain/models/media_item.dart';
+import 'package:codecm/features/player/data/services/video_playback_manager.dart';
 
 /// Full-featured Video Player with dedicated VOD Movie playback and Live TV broadcast modes
 class VideoPlayerPage extends StatefulWidget {
@@ -52,11 +52,14 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
   bool _showControls = true;
   bool _isFullscreen = false;
   bool _isInPipMode = false;
+  bool _isDraggingScrubber = false;
+  double _dragValue = 0.0;
   Timer? _hideTimer;
 
   // Settings & Options State
   double _playbackSpeed = 1.0;
-  String _videoQuality = 'Auto HD (1080p)';
+  // Default to fast-start lightweight stream for near-instant buffering
+  String _videoQuality = 'Fast Stream (SD / 480p)';
   VideoAspectRatioMode _aspectRatioMode = VideoAspectRatioMode.fit169;
   String _sleepTimerSetting = 'Off';
   Timer? _activeSleepTimer;
@@ -83,7 +86,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
     // Record into persistent playback history (max 10, de-duplicated)
     PersistentStorage.instance.upsertRecentHistory(_currentItem);
 
-    _initializeVideo();
+    final existingCtrl = VideoPlaybackManager.instance.controller;
+    if (existingCtrl != null &&
+        VideoPlaybackManager.instance.currentItem?.id == widget.item.id &&
+        existingCtrl.value.isInitialized) {
+      _controller = existingCtrl;
+      _isInitialized = true;
+      _hasError = false;
+    } else {
+      _initializeVideo();
+    }
     _resetControlsTimer();
 
     if (_isLiveTv) {
@@ -119,10 +131,47 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
     } catch (_) {}
   }
 
-  void _initializeVideo() {
-    final streamUrl = _currentItem.streamUrl.trim();
+  Future<void> _initializeVideo() async {
+    String streamUrl = _currentItem.streamUrl.trim();
+    debugPrint('[VideoPlayer] _initializeVideo item=${_currentItem.id}, initialStreamUrl=$streamUrl');
+
+    setState(() {
+      _hasError = false;
+      _isInitialized = false;
+    });
+
+    // Auto-resolve Internet Archive movie streams if needed
+    if (_isMovie || _currentItem.id.startsWith('ia-') || streamUrl.contains('archive.org')) {
+      final rawId = _currentItem.id.startsWith('ia-')
+          ? _currentItem.id.substring(3)
+          : streamUrl.contains('archive.org/download/')
+              ? streamUrl.split('archive.org/download/').last.split('/').first
+              : '';
+      debugPrint('[VideoPlayer] Attempting IA stream resolution for rawId=$rawId');
+      if (rawId.isNotEmpty) {
+        try {
+          final resolved = await _repository.resolveMovieStreamUrl(rawId).timeout(
+            const Duration(seconds: 4),
+            onTimeout: () {
+              debugPrint('[VideoPlayer] Stream resolution timed out after 4s; fallback to $streamUrl');
+              return streamUrl;
+            },
+          );
+          if (resolved.isNotEmpty) {
+            debugPrint('[VideoPlayer] Resolved direct stream URL: $resolved');
+            streamUrl = resolved;
+            _currentItem = _currentItem.copyWith(streamUrl: resolved);
+          }
+        } catch (e) {
+          debugPrint('[VideoPlayer] Stream resolution exception: $e');
+        }
+      }
+    }
+
+    if (!mounted) return;
 
     if (streamUrl.isEmpty || !streamUrl.startsWith('http')) {
+      debugPrint('[VideoPlayer] Empty or invalid streamUrl');
       setState(() {
         _hasError = true;
         _errorMessage = _isMovie
@@ -132,19 +181,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
       return;
     }
 
-    setState(() {
-      _hasError = false;
-      _isInitialized = false;
-    });
-
     _controller?.dispose();
+    debugPrint('[VideoPlayer] Initializing VideoPlayerController for $streamUrl');
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(streamUrl),
+      httpHeaders: const {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
+        'Connection': 'keep-alive',
+        'Accept-Encoding': 'identity',
+      },
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
     );
     _controller = controller;
 
-    controller.initialize().then((_) {
+    try {
+      await controller.initialize();
+      debugPrint('[VideoPlayer] Controller initialized successfully!');
       if (!mounted) return;
       setState(() {
         _isInitialized = true;
@@ -153,15 +205,17 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
       controller.setPlaybackSpeed(_playbackSpeed);
       controller.setVolume(_isMuted ? 0.0 : _volumeLevel);
       controller.play();
-    }).catchError((error) {
+      VideoPlaybackManager.instance.attachController(controller, _currentItem);
+    } catch (error) {
+      debugPrint('[VideoPlayer] Controller.initialize failed: $error');
       if (!mounted) return;
       setState(() {
         _hasError = true;
         _errorMessage = _isMovie
-            ? 'Unable to buffer movie from archive server. Please check your network connection or try again.'
+            ? 'Unable to buffer movie from archive server. Please check your network connection or try another title.'
             : 'Live broadcast feed is currently offline or unreachable. Please try another channel.';
       });
-    });
+    }
 
     controller.addListener(() {
       if (!mounted) return;
@@ -208,7 +262,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
       SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
-    _controller?.dispose();
+    if (VideoPlaybackManager.instance.controller != _controller) {
+      _controller?.dispose();
+    }
     super.dispose();
   }
 
@@ -498,11 +554,24 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
                         : _buildLoadingView(),
               ),
 
-              // 2. Buffering Indicator
-              if (isBuffering && _isInitialized)
-                const Center(
-                  child: ShimmerLoading(
-                    child: ShimmerBox(width: 50, height: 50, borderRadius: 25),
+              // 2. Restrained Buffering Indicator only when genuinely stalled per Buildathon Doc 20 §9.4
+              if (isBuffering && !isPlaying && _isInitialized)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.8,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.logoGreen),
+                        backgroundColor: Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
                   ),
                 ),
 
@@ -534,20 +603,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
                   child: _buildTopHeader(),
                 ),
 
-                // Center Transport Controls
-                Center(
-                  child: _isMovie ? _buildMovieCenterControls(isPlaying) : _buildLiveTvCenterControls(isPlaying),
-                ),
+                // Center Transport Controls (Only shown once video is initialized)
+                if (_isInitialized)
+                  Center(
+                    child: _isMovie ? _buildMovieCenterControls(isPlaying) : _buildLiveTvCenterControls(isPlaying),
+                  ),
 
                 // Bottom Transport & Controls Bar
-                Positioned(
-                  bottom: 14,
-                  left: 16,
-                  right: 16,
-                  child: _isMovie
-                      ? _buildMovieBottomTransport(ctrl, position, duration)
-                      : _buildLiveTvBottomTransport(ctrl),
-                ),
+                if (_isInitialized)
+                  Positioned(
+                    bottom: 14,
+                    left: 16,
+                    right: 16,
+                    child: _isMovie
+                        ? _buildMovieBottomTransport(ctrl, position, duration)
+                        : _buildLiveTvBottomTransport(ctrl),
+                  ),
               ],
 
               // Top back button fallback if error is showing
@@ -711,13 +782,20 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          iconSize: 42,
-          tooltip: 'Rewind 10 seconds',
-          icon: const Icon(Icons.replay_10_rounded, color: Colors.white),
-          onPressed: () => _seekRelative(-10),
+        GestureDetector(
+          onTap: () => _seekRelative(-10),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 26),
+          ),
         ),
-        const SizedBox(width: 28),
+        const SizedBox(width: 32),
         GestureDetector(
           onTap: _togglePlayPause,
           child: Container(
@@ -728,8 +806,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.5),
-                  blurRadius: 20,
+                  color: AppColors.primary.withValues(alpha: 0.45),
+                  blurRadius: 24,
                   spreadRadius: 2,
                 ),
               ],
@@ -741,12 +819,19 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
             ),
           ),
         ),
-        const SizedBox(width: 28),
-        IconButton(
-          iconSize: 42,
-          tooltip: 'Fast-forward 10 seconds',
-          icon: const Icon(Icons.forward_10_rounded, color: Colors.white),
-          onPressed: () => _seekRelative(10),
+        const SizedBox(width: 32),
+        GestureDetector(
+          onTap: () => _seekRelative(10),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 26),
+          ),
         ),
       ],
     );
@@ -757,13 +842,20 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          iconSize: 40,
-          tooltip: 'Previous Channel',
-          icon: const Icon(Icons.skip_previous_rounded, color: Colors.white),
-          onPressed: _playPreviousItem,
+        GestureDetector(
+          onTap: _playPreviousItem,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 26),
+          ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 32),
         GestureDetector(
           onTap: _togglePlayPause,
           child: Container(
@@ -774,8 +866,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isPlaying ? AppColors.primary : Colors.redAccent).withValues(alpha: 0.5),
-                  blurRadius: 20,
+                  color: (isPlaying ? AppColors.primary : Colors.redAccent).withValues(alpha: 0.45),
+                  blurRadius: 24,
                   spreadRadius: 2,
                 ),
               ],
@@ -787,12 +879,19 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
             ),
           ),
         ),
-        const SizedBox(width: 24),
-        IconButton(
-          iconSize: 40,
-          tooltip: 'Next Channel',
-          icon: const Icon(Icons.skip_next_rounded, color: Colors.white),
-          onPressed: _playNextItem,
+        const SizedBox(width: 32),
+        GestureDetector(
+          onTap: _playNextItem,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24, width: 1),
+            ),
+            child: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 26),
+          ),
         ),
       ],
     );
@@ -808,8 +907,9 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
         ? duration
         : Duration(seconds: _currentItem.durationSeconds > 0 ? _currentItem.durationSeconds : 5400);
 
-    final progress = (position.inMilliseconds / (effectiveDuration.inMilliseconds > 0 ? effectiveDuration.inMilliseconds : 1))
+    final currentProgress = (position.inMilliseconds / (effectiveDuration.inMilliseconds > 0 ? effectiveDuration.inMilliseconds : 1))
         .clamp(0.0, 1.0);
+    final sliderValue = _isDraggingScrubber ? _dragValue : currentProgress;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -825,12 +925,27 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
             overlayColor: AppColors.primary.withValues(alpha: 0.2),
           ),
           child: Slider(
-            value: progress,
+            value: sliderValue.clamp(0.0, 1.0),
             min: 0.0,
             max: 1.0,
+            onChangeStart: (val) {
+              setState(() {
+                _isDraggingScrubber = true;
+                _dragValue = val;
+              });
+              _hideTimer?.cancel();
+            },
             onChanged: (val) {
+              setState(() {
+                _dragValue = val;
+              });
+            },
+            onChangeEnd: (val) {
               final targetMs = (val * effectiveDuration.inMilliseconds).toInt();
               ctrl?.seekTo(Duration(milliseconds: targetMs));
+              setState(() {
+                _isDraggingScrubber = false;
+              });
               _resetControlsTimer();
             },
           ),
@@ -965,17 +1080,55 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
   }
 
   Widget _buildLoadingView() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: ShimmerVideoSkeleton(),
+        // 1. Cinematic poster artwork backdrop
+        if (_currentItem.artworkUrl.isNotEmpty)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.22,
+              child: Image.network(
+                _currentItem.artworkUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+
+        // 2. Translucent dark luxury scrim
+        Positioned.fill(
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.70),
+          ),
         ),
-        const SizedBox(height: 20),
-        Text(
-          _isMovie ? 'Buffering archive film stream...' : 'Connecting to live broadcast stream...',
-          style: AppTypography.bodyMd(color: Colors.white70),
+
+        // 3. Professional sleek spinner + concise label per Buildathon Doc 20 §9.4
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.0,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.logoGreen),
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isMovie ? 'Buffering' : 'Connecting to broadcast',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white70,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1166,7 +1319,7 @@ class _VideoMoreSheet extends StatelessWidget {
                 context: context,
                 title: 'Stream Quality',
                 currentValue: videoQuality,
-                options: const ['Auto HD (1080p)', 'High Quality (720p)', 'Standard (480p)', 'Data Saver (360p)'],
+                options: const ['Fast Stream (SD / 480p)', 'Data Saver (360p)', 'High Quality (720p)', 'Auto HD (1080p)'],
                 labelBuilder: (v) => v,
                 onSelected: onQualityChanged,
               );

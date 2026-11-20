@@ -46,15 +46,8 @@ class _HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<_HomeView> {
-  final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'all';
   String _selectedSort = 'recommended';
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
 
   int get _activeFilterCount {
     int count = 0;
@@ -108,7 +101,7 @@ class _HomeViewState extends State<_HomeView> {
     }
   }
 
-  void _navigateToSearch(String query) {
+  void _navigateToSearch([String? query]) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => SearchPage(initialQuery: query)),
     );
@@ -140,16 +133,6 @@ class _HomeViewState extends State<_HomeView> {
             bestForYou = state.popularAudiobooks;
           }
 
-          // Search text filtering for in-page query
-          final searchQuery = _searchController.text.trim().toLowerCase();
-          if (searchQuery.isNotEmpty) {
-            bestForYou = bestForYou.where((item) {
-              return item.title.toLowerCase().contains(searchQuery) ||
-                  item.creator.toLowerCase().contains(searchQuery) ||
-                  item.category.toLowerCase().contains(searchQuery);
-            }).toList();
-          }
-
           if (_selectedSort == 'rating') {
             bestForYou.sort((a, b) => b.rating.compareTo(a.rating));
           } else if (_selectedSort == 'az') {
@@ -169,16 +152,13 @@ class _HomeViewState extends State<_HomeView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Sleek Modern Header (Wordmark left, Weather Pill & Filter right)
+                    // 1. Sleek Modern Header (Wordmark left, Search & Filter right)
                     _buildCleanHeader(context, state),
 
-                  // 2. In-Page Search Bar (44dp, 12dp radius, 1px border)
-                  _buildSearchBar(context),
+                    const SizedBox(height: 6),
 
-                  const SizedBox(height: 12),
-
-                  // 3. Category Quick Rail (6 modules)
-                  _buildCategoryRail(context),
+                    // 2. Category Quick Rail (6 modules)
+                    _buildCategoryRail(context),
 
                   const SizedBox(height: 16),
 
@@ -273,75 +253,64 @@ class _HomeViewState extends State<_HomeView> {
               ),
             ),
 
-            // Right: Filter Button
-            FilterIconButton(
-              onTap: _openHomeFilterSheet,
-              activeCount: _activeFilterCount,
+            // Right: Search & Filter Actions
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeaderIconButton(
+                  icon: Icons.search_rounded,
+                  tooltip: 'Search',
+                  onTap: () => _navigateToSearch(),
+                ),
+                const SizedBox(width: 8),
+                FilterIconButton(
+                  onTap: _openHomeFilterSheet,
+                  activeCount: _activeFilterCount,
+                ),
+              ],
             ),
           ],
         ),
       );
     }
 
-  // 2. In-Page Search Bar (44dp, 12dp radius, 1px border)
-  Widget _buildSearchBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+  Widget _buildHeaderIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? tooltip,
+  }) {
+    final button = GestureDetector(
+      onTap: onTap,
       child: Container(
+        width: 44,
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 19),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (query) => _navigateToSearch(query),
-                style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: 'Search cinema, podcasts, music, radio...',
-                  hintStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-            if (_searchController.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _searchController.clear();
-                  setState(() {});
-                },
-                child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
-              )
-            else
-              GestureDetector(
-                onTap: () => _navigateToSearch(_searchController.text),
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 14),
-                ),
-              ),
           ],
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: AppColors.textSecondary,
         ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: button);
+    }
+    return button;
   }
 
-  // 3. Category Quick Rail (6 modules)
+  // 2. Category Quick Rail (6 modules)
   Widget _buildCategoryRail(BuildContext context) {
     final categories = [
       {'title': 'Movies', 'icon': Icons.movie_creation_outlined, 'page': const MoviesPage()},
@@ -665,7 +634,7 @@ class _HomeViewState extends State<_HomeView> {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 72,
+              height: 76,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -680,28 +649,57 @@ class _HomeViewState extends State<_HomeView> {
                       );
                     },
                     child: Container(
-                      width: 190,
+                      width: 216,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              item.artworkUrl,
-                              width: 54,
-                              height: 54,
-                              fit: BoxFit.cover,
-                              errorBuilder: (ctx, err, stack) => Container(
-                                width: 54,
-                                height: 54,
-                                color: AppColors.primaryContainer,
-                                child: const Icon(Icons.favorite_rounded, color: AppColors.error, size: 20),
-                              ),
+                            child: Container(
+                              width: 58,
+                              height: 58,
+                              color: AppColors.surfaceSubtle,
+                              child: item.artworkUrl.isNotEmpty
+                                  ? Image.network(
+                                      item.artworkUrl,
+                                      width: 58,
+                                      height: 58,
+                                      fit: BoxFit.cover,
+                                      frameBuilder: (ctx, child, frame, wasSync) {
+                                        if (wasSync || frame != null) return child;
+                                        return const ShimmerLoading(
+                                          child: ShimmerBox(
+                                            width: 58,
+                                            height: 58,
+                                            borderRadius: 8,
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (ctx, err, stack) => Container(
+                                        width: 58,
+                                        height: 58,
+                                        color: AppColors.primaryContainer,
+                                        child: const Icon(Icons.favorite_rounded, color: AppColors.error, size: 22),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 58,
+                                      height: 58,
+                                      color: AppColors.primaryContainer,
+                                      child: const Icon(Icons.favorite_rounded, color: AppColors.error, size: 22),
+                                    ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -714,7 +712,7 @@ class _HomeViewState extends State<_HomeView> {
                                   item.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.textPrimary),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.textPrimary),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -722,6 +720,19 @@ class _HomeViewState extends State<_HomeView> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star_rounded, color: AppColors.amber, size: 12),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      item.formattedRating,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                    ),
+                                    const Spacer(),
+                                    const Icon(Icons.favorite_rounded, color: AppColors.error, size: 13),
+                                  ],
                                 ),
                               ],
                             ),
@@ -954,16 +965,31 @@ class _HomeViewState extends State<_HomeView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.network(
-                podcast.artworkUrl,
+              Container(
                 width: 136,
                 height: 110,
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, err, stack) => Container(
+                color: AppColors.surfaceSubtle,
+                child: Image.network(
+                  podcast.artworkUrl,
                   width: 136,
                   height: 110,
-                  color: AppColors.primaryContainer,
-                  child: const Center(child: Icon(Icons.podcasts_rounded, color: AppColors.primary, size: 36)),
+                  fit: BoxFit.cover,
+                  frameBuilder: (ctx, child, frame, wasSync) {
+                    if (wasSync || frame != null) return child;
+                    return const ShimmerLoading(
+                      child: ShimmerBox(
+                        width: 136,
+                        height: 110,
+                        borderRadius: 0,
+                      ),
+                    );
+                  },
+                  errorBuilder: (ctx, err, stack) => Container(
+                    width: 136,
+                    height: 110,
+                    color: AppColors.primaryContainer,
+                    child: const Center(child: Icon(Icons.podcasts_rounded, color: AppColors.primary, size: 36)),
+                  ),
                 ),
               ),
               Padding(

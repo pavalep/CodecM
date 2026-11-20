@@ -63,16 +63,30 @@ class FullScreenPlayerPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.queue_music_rounded, color: AppColors.textPrimary, size: 24),
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => const PlaybackQueuePage(),
-                          );
-                        },
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.queue_music_rounded, color: AppColors.textPrimary, size: 24),
+                            tooltip: 'Queue',
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => const PlaybackQueuePage(),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary, size: 24),
+                            tooltip: 'Stop & Close',
+                            onPressed: () {
+                              context.read<PlayerBloc>().add(StopPlayback());
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -275,7 +289,7 @@ class FullScreenPlayerPage extends StatelessWidget {
                     ],
                   ),
 
-                  // 6. Footer Utility Pills: Speed, Sleep Timer, Output, Share
+                  // 6. Footer Utility Pills: Speed, Sleep Timer
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
@@ -291,7 +305,7 @@ class FullScreenPlayerPage extends StatelessWidget {
                             context.read<PlayerBloc>().add(ChangePlaybackSpeed(nextSpeed));
                           },
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         _buildFooterPill(
                           context,
                           icon: Icons.nightlight_round,
@@ -302,20 +316,6 @@ class FullScreenPlayerPage extends StatelessWidget {
                                 : (state.sleepTimerMinutes == 30 ? 60 : 15);
                             context.read<PlayerBloc>().add(SetSleepTimer(nextTimer));
                           },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildFooterPill(
-                          context,
-                          icon: Icons.speaker_group_outlined,
-                          label: 'Audio Stream',
-                          onTap: () {},
-                        ),
-                        const SizedBox(width: 8),
-                        _buildFooterPill(
-                          context,
-                          icon: Icons.share_outlined,
-                          label: 'Share',
-                          onTap: () {},
                         ),
                       ],
                     ),

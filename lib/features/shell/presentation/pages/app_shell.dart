@@ -15,7 +15,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
-  bool _isBottomBarVisible = true;
 
   // Exactly 3 Core Navigation Tabs: Home, Explore, Profile
   // Library, Saved / Bookmarks, History & Settings are centralized inside Profile & Home
@@ -25,79 +24,43 @@ class _AppShellState extends State<AppShell> {
     ProfilePage(),
   ];
 
-  bool _onUserScroll(UserScrollNotification notification) {
-    if (notification.direction == ScrollDirection.reverse) {
-      // User is scrolling down -> hide bottom bar for full screen view
-      if (_isBottomBarVisible) {
-        setState(() => _isBottomBarVisible = false);
-      }
-    } else if (notification.direction == ScrollDirection.forward ||
-        notification.direction == ScrollDirection.idle) {
-      // User is scrolling up or stopped scrolling -> reveal bottom bar
-      if (!_isBottomBarVisible) {
-        setState(() => _isBottomBarVisible = true);
-      }
-    }
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: NotificationListener<UserScrollNotification>(
-        onNotification: _onUserScroll,
-        child: Stack(
-          children: [
-            // 1. Screen Body with IndexedStack to retain tab state
-            IndexedStack(
-              index: _currentIndex,
-              children: _pages,
-            ),
-
-            // 2. Persistent Floating MiniPlayer docked cleanly above bottom nav
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 2,
-              child: AnimatedSlide(
-                offset: _isBottomBarVisible ? Offset.zero : const Offset(0, 1.8),
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeInOut,
-                child: const MiniPlayerWidget(),
-              ),
-            ),
-          ],
-        ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
       ),
 
-      // 3. Crisp, Minimal 3-Item Bottom Navigation Bar (Animated slide on scroll)
-      bottomNavigationBar: AnimatedSlide(
-        offset: _isBottomBarVisible ? Offset.zero : const Offset(0, 1.2),
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeInOut,
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(color: AppColors.border, width: 0.8),
+      // Docked MiniPlayer & 3-Item Navigation Bar (Always visible)
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayerWidget(),
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                top: BorderSide(color: AppColors.border, width: 0.8),
+              ),
             ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-                  _buildNavItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
-                  _buildNavItem(2, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
-                ],
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                height: 60,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+                    _buildNavItem(1, Icons.explore_rounded, Icons.explore_outlined, 'Explore'),
+                    _buildNavItem(2, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

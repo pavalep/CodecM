@@ -22,11 +22,11 @@ class InternetArchiveAdapter {
     try {
       String q;
       if (query.trim().isNotEmpty) {
-        q = '(${query.trim()}) AND mediatype:(movies)';
+        q = '(${query.trim()}) AND mediatype:(movies) AND format:(h.264 OR MPEG4)';
       } else if (categoryQuery != null && categoryQuery.isNotEmpty) {
-        q = '$categoryQuery AND mediatype:(movies)';
+        q = '$categoryQuery AND mediatype:(movies) AND format:(h.264 OR MPEG4)';
       } else {
-        q = 'collection:(feature_films OR silent_films OR short_films) AND mediatype:(movies)';
+        q = 'collection:(feature_films OR silent_films OR short_films) AND mediatype:(movies) AND format:(h.264 OR MPEG4)';
       }
 
       final uri = Uri.parse(_searchUrl).replace(queryParameters: {
@@ -52,39 +52,112 @@ class InternetArchiveAdapter {
     return [];
   }
 
-  /// Resolve exact playable MP4 stream URL from item metadata
+  static const List<String> _videoFormats = [
+    '512kb',
+    'h.264',
+    'h264',
+    'mpeg4',
+    'mpeg-4',
+    'matroska',
+    'webm',
+    'ogg theora',
+    'ogg video',
+  ];
+  static const List<String> _videoFallbackFormats = ['cinepack', 'avi', 'mpeg2'];
+
+  static final Map<String, String> _resolvedStreamCache = {};
+
+  static int _videoFormatRank(String format) {
+    final f = format.toLowerCase();
+    // 512Kb MPEG4, h.264, and standard MP4 all stream directly on Android ExoPlayer
+    // Group them into the primary tier so smaller files win per Buildathon Doc 15
+    if (f.contains('512kb') || f.contains('h.264') || f.contains('h264') || f.contains('mpeg4') || f.contains('mpeg-4')) {
+      return 0;
+    }
+    final idx = _videoFormats.indexWhere((c) => f.contains(c));
+    if (idx != -1) return idx;
+    final fb = _videoFallbackFormats.indexWhere((c) => f.contains(c));
+    return fb == -1 ? -1 : _videoFormats.length + fb;
+  }
+
+  /// Resolve exact playable MP4 stream URL from item metadata per Buildathon Doc 15 §4.9
   Future<String> resolveVideoStreamUrl(String identifier) async {
-    try {
-      final uri = Uri.parse('$_metadataBaseUrl/$identifier');
-      final response = await _client.get(
-        uri,
-        headers: {'User-Agent': 'SimbaMediaPlayer/1.0.0 (paval@simba.app)'},
-      ).timeout(const Duration(seconds: 8));
+    if (_resolvedStreamCache.containsKey(identifier)) {
+      return _resolvedStreamCache[identifier]!;
+    }
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        final files = data['files'] as List? ?? [];
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final uri = Uri.parse('$_metadataBaseUrl/$identifier');
+        final response = await _client.get(
+          uri,
+          headers: {'User-Agent': 'CodecMMediaPlayer/1.0.0 (paval@codecm.app)'},
+        ).timeout(const Duration(seconds: 4));
 
-        // Find primary h.264 MP4 file
-        final mp4File = files.firstWhere(
-          (f) {
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body) as Map<String, dynamic>;
+          final files = data['files'] as List? ?? [];
+
+          // Rank all candidate video files per Buildathon Doc 15 algorithm
+          final candidates = <Map<String, dynamic>>[];
+          for (int i = 0; i < files.length; i++) {
+            final f = files[i] as Map<String, dynamic>;
+            final format = (f['format'] as String? ?? '').toLowerCase();
             final name = (f['name'] as String? ?? '').toLowerCase();
-            return name.endsWith('.mp4') && !name.contains('_512kb') && !name.contains('_thumb');
-          },
-          orElse: () => files.firstWhere(
-            (f) => (f['name'] as String? ?? '').toLowerCase().endsWith('.mp4'),
-            orElse: () => null,
-          ),
-        );
+            if (name.contains('_thumb') || name.contains('_sample')) continue;
 
-        if (mp4File != null) {
-          final fileName = mp4File['name'] as String;
-          return 'https://archive.org/download/$identifier/$fileName';
+            final rank = _videoFormatRank(format);
+            if (rank != -1 || name.endsWith('.mp4')) {
+              final size = int.tryParse(f['size']?.toString() ?? '') ?? 999999999;
+              // 512kb MPEG-4 derivatives and .ia.mp4 files are pre-processed with qt-faststart
+              // and lightweight bitrates (360p/480p) specifically for instant mobile streaming
+              final isFastStream = name.contains('512kb') || name.contains('.ia.mp4') || format.contains('512kb');
+              candidates.add({
+                'file': f,
+                'rank': isFastStream ? -1 : (rank != -1 ? rank : 99),
+                'isFastStream': isFastStream,
+                'size': size,
+                'index': i,
+              });
+            }
+          }
+
+          if (candidates.isNotEmpty) {
+            candidates.sort((a, b) {
+              // Priority 1: Fast-start web derivatives (512kb / .ia.mp4) first
+              final aFast = (a['isFastStream'] as bool?) ?? false;
+              final bFast = (b['isFastStream'] as bool?) ?? false;
+              if (aFast != bFast) return aFast ? -1 : 1;
+
+              final rankDiff = (a['rank'] as int).compareTo(b['rank'] as int);
+              if (rankDiff != 0) return rankDiff;
+
+              // Priority 2: Smaller file size streams first without initial buffer stall
+              final sizeDiff = (a['size'] as int).compareTo(b['size'] as int);
+              if (sizeDiff != 0) return sizeDiff;
+              return (a['index'] as int).compareTo(b['index'] as int);
+            });
+
+            final best = candidates.first['file'] as Map<String, dynamic>;
+            final fileName = best['name'] as String;
+            final server = data['server'] as String? ?? data['d1'] as String?;
+            final dir = data['dir'] as String?;
+            final resolvedUrl = (server != null && dir != null && server.isNotEmpty && dir.isNotEmpty)
+                ? 'https://$server$dir/$fileName'
+                : 'https://archive.org/download/$identifier/$fileName';
+            _resolvedStreamCache[identifier] = resolvedUrl;
+            return resolvedUrl;
+          }
         }
+      } catch (_) {}
+      if (attempt < 3) {
+        await Future.delayed(Duration(milliseconds: 150 * attempt));
       }
-    } catch (_) {}
+    }
     // Standard default stream pattern on Internet Archive
-    return 'https://archive.org/download/$identifier/$identifier.mp4';
+    final defaultUrl = 'https://archive.org/download/$identifier/$identifier.mp4';
+    _resolvedStreamCache[identifier] = defaultUrl;
+    return defaultUrl;
   }
 
   MediaItem _mapDocToMediaItem(Map<String, dynamic> doc) {

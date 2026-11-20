@@ -36,7 +36,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   final List<String> _tabs = ['Overview', 'Content', 'Notes', 'Reviews'];
 
   bool get _isVideo =>
-      widget.item.lane == MediaLane.video || widget.item.kind == MediaKind.show;
+      widget.item.lane == MediaLane.video ||
+      widget.item.kind == MediaKind.show ||
+      widget.item.kind == MediaKind.movie;
 
   @override
   void initState() {
@@ -141,74 +143,113 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // 1. Scrollable Content
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 108),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Hero Photo (Matching Reference Phone 3)
-                _buildHeroImage(context),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Hero Photo (Matching Reference Phone 3)
+            _buildHeroImage(context),
 
-                // Main Details Card
-                Container(
-                  color: AppColors.surface,
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      Text(
-                        widget.item.title,
-                        style: AppTypography.displayEditorial(
-                          fontSize: 26,
-                          color: AppColors.textPrimary,
+            // Main Details Card with Embedded Play Button
+            Container(
+              color: AppColors.surface,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title
+                        Text(
+                          widget.item.title,
+                          style: AppTypography.displayEditorial(
+                            fontSize: 24,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
+                        const SizedBox(height: 6),
 
-                      // Location / Creator & Count
-                      Row(
-                        children: [
-                          Icon(
-                            _isVideo ? Icons.tv_rounded : Icons.location_on_outlined,
-                            color: AppColors.textSecondary,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '${widget.item.creator} • ${widget.item.kind.displayName}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.bodySm(color: AppColors.textSecondary, fontSize: 13),
+                        // Location / Creator & Kind
+                        Row(
+                          children: [
+                            Icon(
+                              _isVideo ? Icons.tv_rounded : Icons.location_on_outlined,
+                              color: AppColors.textSecondary,
+                              size: 15,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            widget.item.durationString,
-                            style: AppTypography.bodySm(color: AppColors.textSecondary, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '${widget.item.creator} • ${widget.item.kind.displayName}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.bodySm(color: AppColors.textSecondary, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
 
-                      // Rating Row
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rounded, color: AppColors.amber, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.item.rating.toStringAsFixed(1)} (${widget.item.reviewCount} reviews)',
-                            style: AppTypography.labelLg(color: AppColors.textPrimary),
+                        // Rating & Duration Row
+                        Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: AppColors.amber, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.item.rating.toStringAsFixed(1)} (${widget.item.reviewCount} reviews)',
+                              style: AppTypography.labelLg(color: AppColors.textPrimary),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '• ${widget.item.durationString}',
+                              style: AppTypography.bodySm(color: AppColors.textTertiary, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Embedded Action Play Button
+                  GestureDetector(
+                    onTap: () {
+                      if (_isVideo) {
+                        _playVideoContent();
+                      } else {
+                        final ep = _episodes.isNotEmpty
+                            ? _episodes.first
+                            : MediaRepository.mediaItemToEpisode(widget.item);
+                        _playContent(ep);
+                      }
+                    },
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ],
+                      child: Icon(
+                        _isVideo ? Icons.videocam_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
 
                 const Divider(height: 1, color: AppColors.border),
 
@@ -345,6 +386,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                             )
                           : ListView.separated(
                               shrinkWrap: true,
+                              padding: EdgeInsets.zero,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: _episodes.length,
                               separatorBuilder: (ctx, i) => const SizedBox(height: 10),
@@ -357,16 +399,6 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               ],
             ),
           ),
-
-          // 2. Sticky Bottom Bar: Stream indicator + Action Button (Matching Reference Phone 3)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildStickyBottomBar(context),
-          ),
-        ],
-      ),
     );
   }
 
@@ -421,39 +453,45 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
             ),
           ),
 
-          // Floating Top Actions Bar: Back, Favorite Heart, Share (Matching Reference Phone 3)
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Back Button
-                  _buildCircleActionButton(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
+          // Floating Top Actions Bar: Back, Favorite Heart, Share (Pinned to Top of Screen)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Back Button
+                    _buildCircleActionButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
 
-                  // Actions Right: Favorite & Share
-                  Row(
-                    children: [
-                      _buildCircleActionButton(
-                        icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                        color: _isFavorite ? AppColors.error : AppColors.textPrimary,
-                        onTap: _toggleFavorite,
-                      ),
-                      const SizedBox(width: 10),
-                      _buildCircleActionButton(
-                        icon: Icons.share_outlined,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Media link copied to clipboard')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+                    // Actions Right: Favorite & Share
+                    Row(
+                      children: [
+                        _buildCircleActionButton(
+                          icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          color: _isFavorite ? AppColors.error : AppColors.textPrimary,
+                          onTap: _toggleFavorite,
+                        ),
+                        const SizedBox(width: 10),
+                        _buildCircleActionButton(
+                          icon: Icons.share_outlined,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Media link copied to clipboard')),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -585,76 +623,6 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               child: const Icon(Icons.play_arrow_rounded, color: AppColors.primary, size: 18),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStickyBottomBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(top: BorderSide(color: AppColors.border)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Left: Stream status
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _isVideo ? 'HD Live Video' : 'Lossless Audio',
-                    style: AppTypography.displayEditorial(fontSize: 16, color: AppColors.textPrimary),
-                  ),
-                  Text(
-                    _isVideo ? 'Public HLS Broadcast' : 'High-Fidelity Stream',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-
-              // Right: Deep Forest Pine pill button
-              GestureDetector(
-                onTap: () {
-                  if (_isVideo) {
-                    _playVideoContent();
-                  } else if (_episodes.isNotEmpty) {
-                    _playContent(_episodes.first);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        _isVideo ? 'Watch video' : 'Start listening',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
