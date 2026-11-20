@@ -145,7 +145,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
         children: [
           // 1. Scrollable Content
           SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 74),
+            padding: const EdgeInsets.only(bottom: 108),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -592,7 +592,6 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
 
   Widget _buildStickyBottomBar(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: const Border(top: BorderSide(color: AppColors.border)),
@@ -604,53 +603,59 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: Stream status
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _isVideo ? 'HD Live Video' : 'Lossless Audio',
-                style: AppTypography.displayEditorial(fontSize: 16, color: AppColors.textPrimary),
+              // Left: Stream status
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isVideo ? 'HD Live Video' : 'Lossless Audio',
+                    style: AppTypography.displayEditorial(fontSize: 16, color: AppColors.textPrimary),
+                  ),
+                  Text(
+                    _isVideo ? 'Public HLS Broadcast' : 'High-Fidelity Stream',
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
-              Text(
-                _isVideo ? 'Public HLS Broadcast' : 'High-Fidelity Stream',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+
+              // Right: Deep Forest Pine pill button
+              GestureDetector(
+                onTap: () {
+                  if (_isVideo) {
+                    _playVideoContent();
+                  } else if (_episodes.isNotEmpty) {
+                    _playContent(_episodes.first);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        _isVideo ? 'Watch video' : 'Start listening',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-
-          // Right: Deep Forest Pine pill button
-          GestureDetector(
-            onTap: () {
-              if (_isVideo) {
-                _playVideoContent();
-              } else if (_episodes.isNotEmpty) {
-                _playContent(_episodes.first);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _isVideo ? 'Watch video' : 'Start listening',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

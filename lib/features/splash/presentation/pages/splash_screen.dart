@@ -67,11 +67,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: AppColors.primary,
+        systemNavigationBarColor: AppColors.splashBackground,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.splashBackground,
         body: Center(
           child: AnimatedBuilder(
             animation: _controller,
@@ -87,21 +87,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Centered App Icon Mark
-                Container(
-                  width: 108,
-                  height: 108,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Image.asset(
-                    'assets/images/app_logo_white.png',
-                    width: 72,
-                    height: 72,
-                    fit: BoxFit.contain,
-                  ),
+                // Centered App Icon Mark directly on green (NO white circle)
+                Image.asset(
+                  'assets/images/app_logo_white.png',
+                  width: 84,
+                  height: 84,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 20),
                 Text(

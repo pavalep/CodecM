@@ -156,19 +156,21 @@ class _HomeViewState extends State<_HomeView> {
             bestForYou.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
           }
 
-          return RefreshIndicator(
-            color: AppColors.primary,
-            onRefresh: () async {
-              context.read<HomeBloc>().add(const LoadHomeData(refresh: true));
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 1. Sleek Modern Header (Wordmark left, Weather Pill & Filter right)
-                  _buildCleanHeader(context, state),
+          return SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async {
+                context.read<HomeBloc>().add(const LoadHomeData(refresh: true));
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Sleek Modern Header (Wordmark left, Weather Pill & Filter right)
+                    _buildCleanHeader(context, state),
 
                   // 2. In-Page Search Bar (44dp, 12dp radius, 1px border)
                   _buildSearchBar(context),
@@ -203,21 +205,20 @@ class _HomeViewState extends State<_HomeView> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
 
   // 1. Sleek, minimal Google M3 Top App Bar (Wordmark + Live Weather underneath + Filter)
   Widget _buildCleanHeader(BuildContext context, HomeState state) {
     final weatherSummary = state.weather?.summary ?? '10°C • Partly cloudy';
 
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Left: Logo + Wordmark with Live Weather underneath
@@ -279,9 +280,8 @@ class _HomeViewState extends State<_HomeView> {
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
   // 2. In-Page Search Bar (44dp, 12dp radius, 1px border)
   Widget _buildSearchBar(BuildContext context) {

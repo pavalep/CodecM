@@ -5,15 +5,19 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary Brand: Vibrant Emerald Mint from Brand Logo (#0CD090)
-  static const Color primary = Color(0xFF0CD090);
-  static const Color primaryDark = Color(0xFF089768);
-  static const Color primaryLight = Color(0xFF32E0A5);
+  // Primary Brand: Deep Forest Pine (#1E513B) for buttons, active tabs, and main accents
+  static const Color primary = Color(0xFF1E513B);
+  static const Color primaryDark = Color(0xFF133B2B);
+  static const Color primaryLight = Color(0xFF2D6A4F);
   static const Color onPrimary = Colors.white;
 
   // Mint / Light Container for badges and chips
-  static const Color primaryContainer = Color(0xFFE4F9F1);
-  static const Color onPrimaryContainer = Color(0xFF066143);
+  static const Color primaryContainer = Color(0xFFEAF4EE);
+  static const Color onPrimaryContainer = Color(0xFF1E513B);
+
+  // Vibrant Brand Logo Mint (#0CD090) used specifically for the Brand Logo mark, Splash Screen, and App Icon
+  static const Color logoGreen = Color(0xFF0CD090);
+  static const Color splashBackground = Color(0xFF0CD090);
 
   // Accent Amber Gold for ratings and awards
   static const Color amber = Color(0xFFF59E0B);
