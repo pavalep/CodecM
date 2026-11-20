@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:codecm/core/theme/app_colors.dart';
@@ -27,6 +28,7 @@ class MediaDetailPage extends StatefulWidget {
 
 class _MediaDetailPageState extends State<MediaDetailPage> {
   final MediaRepository _repository = MediaRepository();
+  bool _isScrolled = false;
   int _activeTabIndex = 0;
   bool _isDescriptionExpanded = false;
   late bool _isFavorite;
@@ -143,13 +145,24 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Hero Photo (Matching Reference Phone 3)
-            _buildHeroImage(context),
+      body: Stack(
+        children: [
+          // 1. Scrollable Content Body with Scroll Notification
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              final scrolled = notification.metrics.pixels > 80;
+              if (scrolled != _isScrolled) {
+                setState(() => _isScrolled = scrolled);
+              }
+              return false;
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Hero Photo (Matching Reference Phone 3)
+                  _buildHeroImage(context),
 
             // Main Details Card with Embedded Play Button
             Container(
@@ -399,6 +412,95 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
               ],
             ),
           ),
+        ),
+
+          // 2. Persistent Top Action Header (Pinned at Top of Screen)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: _isScrolled ? 16 : 0,
+                  sigmaY: _isScrolled ? 16 : 0,
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: _isScrolled
+                        ? AppColors.surface.withValues(alpha: 0.94)
+                        : Colors.transparent,
+                    border: _isScrolled
+                        ? const Border(bottom: BorderSide(color: AppColors.border, width: 0.8))
+                        : null,
+                    boxShadow: _isScrolled
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          // Back Button
+                          _buildCircleActionButton(
+                            icon: Icons.arrow_back_rounded,
+                            onTap: () => Navigator.of(context).pop(),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Animated Centered Title when scrolled
+                          Expanded(
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _isScrolled ? 1.0 : 0.0,
+                              child: Text(
+                                widget.item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.headlineSm(fontSize: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Actions Right: Favorite & Share
+                          Row(
+                            children: [
+                              _buildCircleActionButton(
+                                icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                color: _isFavorite ? AppColors.error : AppColors.textPrimary,
+                                onTap: _toggleFavorite,
+                              ),
+                              const SizedBox(width: 10),
+                              _buildCircleActionButton(
+                                icon: Icons.share_outlined,
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Media link copied to clipboard')),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -448,49 +550,6 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                     Colors.black.withValues(alpha: 0.65),
                   ],
                   stops: const [0.0, 0.45, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // Floating Top Actions Bar: Back, Favorite Heart, Share (Pinned to Top of Screen)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Back Button
-                    _buildCircleActionButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-
-                    // Actions Right: Favorite & Share
-                    Row(
-                      children: [
-                        _buildCircleActionButton(
-                          icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          color: _isFavorite ? AppColors.error : AppColors.textPrimary,
-                          onTap: _toggleFavorite,
-                        ),
-                        const SizedBox(width: 10),
-                        _buildCircleActionButton(
-                          icon: Icons.share_outlined,
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Media link copied to clipboard')),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
               ),
             ),

@@ -185,11 +185,6 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
     debugPrint('[VideoPlayer] Initializing VideoPlayerController for $streamUrl');
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(streamUrl),
-      httpHeaders: const {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36',
-        'Connection': 'keep-alive',
-        'Accept-Encoding': 'identity',
-      },
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
     );
     _controller = controller;
@@ -219,14 +214,17 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
 
     controller.addListener(() {
       if (!mounted) return;
-      if (controller.value.hasError && !_hasError) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = controller.value.errorDescription ?? 'Playback error occurred';
-        });
-      } else {
-        setState(() {});
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (controller.value.hasError && !_hasError) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = controller.value.errorDescription ?? 'Playback error occurred';
+          });
+        } else {
+          setState(() {});
+        }
+      });
     });
   }
 
@@ -531,7 +529,15 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_isFullscreen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isFullscreen) {
+          _toggleFullscreen();
+        }
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         top: !_isFullscreen,
@@ -635,6 +641,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingOb
           ),
         ),
       ),
+    ),
     );
   }
 
