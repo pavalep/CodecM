@@ -38,7 +38,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
 
   final List<String> _tabs = ['Overview', 'Content', 'Notes', 'Reviews'];
 
-  bool get _isPodcast => widget.item.kind == MediaKind.podcast;
+  bool get _isPodcast =>
+      widget.item.kind == MediaKind.podcast &&
+      (widget.item.rawMetadata.containsKey('feedId') || widget.item.episodesCount > 1);
 
   bool get _isVideo =>
       widget.item.lane == MediaLane.video ||

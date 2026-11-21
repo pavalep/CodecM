@@ -56,9 +56,15 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
 
   void _toggleFollow() {
     PersistentStorage.instance.toggleFollowPodcast(widget.podcast);
-    PersistentStorage.instance.toggleBookmark(MediaRepository.podcastToMediaItem(widget.podcast));
     setState(() {
       _isFollowing = PersistentStorage.instance.isFollowingPodcast(widget.podcast.id);
+    });
+  }
+
+  void _toggleEpisodeBookmark(Episode ep) {
+    final mediaItem = MediaRepository.episodeToMediaItem(ep);
+    setState(() {
+      PersistentStorage.instance.toggleBookmark(mediaItem);
     });
   }
 
@@ -289,17 +295,32 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
                       GestureDetector(
                         onTap: _toggleFollow,
                         child: Container(
-                          width: 40,
-                          height: 40,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            shape: BoxShape.circle,
+                            color: _isFollowing
+                                ? AppColors.primary
+                                : Colors.white.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(999),
                             boxShadow: AppColors.cardShadow,
                           ),
-                          child: Icon(
-                            _isFollowing ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            color: _isFollowing ? AppColors.error : AppColors.textPrimary,
-                            size: 20,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isFollowing ? Icons.check_rounded : Icons.add_rounded,
+                                color: _isFollowing ? Colors.white : AppColors.primary,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _isFollowing ? 'Following' : 'Follow',
+                                style: TextStyle(
+                                  color: _isFollowing ? Colors.white : AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -411,6 +432,8 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
   }
 
   Widget _buildEpisodeItem(BuildContext context, Episode episode) {
+    final isBookmarked = PersistentStorage.instance.isBookmarked(episode.id);
+
     return GestureDetector(
       onTap: () {
         context.read<PlayerBloc>().add(PlayEpisode(episode));
@@ -458,6 +481,21 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
                 ],
               ),
             ),
+            GestureDetector(
+              onTap: () => _toggleEpisodeBookmark(episode),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                child: Icon(
+                  isBookmarked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: isBookmarked ? AppColors.error : AppColors.textTertiary,
+                  size: 19,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             Container(
               width: 32,
               height: 32,

@@ -7,6 +7,7 @@ import 'package:codecm/core/widgets/browse_list_footer.dart';
 import 'package:codecm/features/media/domain/models/media_item.dart';
 import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/media/presentation/pages/media_detail_page.dart';
+import 'package:codecm/features/player/domain/models/podcast.dart';
 import 'package:codecm/features/player/presentation/bloc/player_bloc.dart';
 import 'package:codecm/features/player/presentation/bloc/player_event.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -338,7 +339,32 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
+  bool _isPodcastFeedShow(MediaItem item) {
+    return item.kind == MediaKind.podcast &&
+        (item.rawMetadata.containsKey('feedId') || item.episodesCount > 1);
+  }
+
+  Podcast _mediaItemToPodcast(MediaItem item) {
+    return Podcast(
+      id: item.id,
+      title: item.title,
+      subtitle: item.subtitle ?? item.creator,
+      hosts: item.creator,
+      artworkUrl: item.artworkUrl,
+      description: item.description,
+      rating: item.rating,
+      reviewCount: item.reviewCount,
+      episodeCount: item.episodesCount,
+      categories: item.tags.isNotEmpty ? item.tags : [item.category],
+      feedUrl: item.streamUrl,
+    );
+  }
+
   Widget _buildShowcaseCard(BuildContext context, MediaItem item) {
+    final isPodcastShow = _isPodcastFeedShow(item);
+    final isFollowed = isPodcastShow && _repository.isFollowingPodcast(item.id);
+    final isBookmarked = !isPodcastShow && _repository.isBookmarked(item.id);
+
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
@@ -415,24 +441,62 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 child: GestureDetector(
                   onTap: () {
                     setState(() {
-                      _repository.toggleBookmarkItem(item);
+                      if (isPodcastShow) {
+                        _repository.toggleFollowPodcast(_mediaItemToPodcast(item));
+                      } else {
+                        _repository.toggleBookmarkItem(item);
+                      }
                     });
                   },
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _repository.isBookmarked(item.id)
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: _repository.isBookmarked(item.id) ? AppColors.error : Colors.white,
-                      size: 17,
-                    ),
-                  ),
+                  child: isPodcastShow
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: isFollowed
+                                ? AppColors.primary
+                                : Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: isFollowed
+                                  ? AppColors.primary
+                                  : Colors.white.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isFollowed ? Icons.check_rounded : Icons.add_rounded,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isFollowed ? 'Following' : 'Follow',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isBookmarked
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isBookmarked ? AppColors.error : Colors.white,
+                            size: 17,
+                          ),
+                        ),
                 ),
               ),
               Positioned(
