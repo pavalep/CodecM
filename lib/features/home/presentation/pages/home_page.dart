@@ -25,7 +25,6 @@ import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/player/presentation/pages/video_player_page.dart';
 import 'package:codecm/features/saved/presentation/pages/saved_page.dart';
 import 'package:codecm/features/library/presentation/pages/library_page.dart';
-import 'package:codecm/features/ai_dj/presentation/pages/ai_dj_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -815,11 +814,7 @@ class _HomeViewState extends State<_HomeView> {
                 ],
               ),
               GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AiDjPage()),
-                  );
-                },
+                onTap: () => _showAllCuratedMixesSheet(context, mixes),
                 child: Text(
                   'All (${mixes.length})',
                   style: AppTypography.labelLg(color: AppColors.primary, fontSize: 12.5),
@@ -842,15 +837,7 @@ class _HomeViewState extends State<_HomeView> {
               final count = items.isNotEmpty ? items.length : 6;
 
               return GestureDetector(
-                onTap: () {
-                  if (items.isNotEmpty) {
-                    _playCuratedMix(context, items);
-                  } else {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AiDjPage()),
-                    );
-                  }
-                },
+                onTap: () => _showCuratedMixSheet(context, mix),
                 child: Container(
                   width: 238,
                   padding: const EdgeInsets.all(14),
@@ -937,17 +924,26 @@ class _HomeViewState extends State<_HomeView> {
                               ),
                             ],
                           ),
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 18,
+                          GestureDetector(
+                            onTap: () {
+                              if (items.isNotEmpty) {
+                                _playCuratedMix(context, items);
+                              } else {
+                                _showCuratedMixSheet(context, mix);
+                              }
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
                         ],
@@ -961,6 +957,437 @@ class _HomeViewState extends State<_HomeView> {
         ),
         const SizedBox(height: 22),
       ],
+    );
+  }
+
+  void _showCuratedMixSheet(BuildContext context, Map<String, dynamic> mix) {
+    final badge = mix['badge'] as String? ?? 'CURATED';
+    final title = mix['title'] as String? ?? 'Handpicked Mix';
+    final subtitle = mix['subtitle'] as String? ?? '';
+    final items = (mix['items'] as List<MediaItem>?) ?? const [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.78,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+
+                // Sheet Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badge,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_awesome_rounded, size: 13, color: AppColors.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${items.length} titles • Handpicked mix',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        title,
+                        style: AppTypography.displayEditorial(
+                          fontSize: 22,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1, color: AppColors.border),
+
+                // Titles List
+                Flexible(
+                  child: items.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(
+                            child: Text(
+                              'Loading titles for this mix...',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          itemCount: items.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 10),
+                          itemBuilder: (ctx, idx) {
+                            final item = items[idx];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.of(sheetCtx).pop();
+                                _playItem(context, item);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(9),
+                                      child: Image.network(
+                                        item.artworkUrl,
+                                        width: 52,
+                                        height: 52,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => Container(
+                                          width: 52,
+                                          height: 52,
+                                          color: AppColors.primaryContainer,
+                                          child: Icon(
+                                            item.isVideo
+                                                ? Icons.movie_outlined
+                                                : Icons.music_note_rounded,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${item.creator} • ${item.kind.displayName}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.star_rounded, color: AppColors.amber, size: 12),
+                                              const SizedBox(width: 3),
+                                              Text(
+                                                item.formattedRating,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                item.durationString,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.textTertiary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primaryContainer,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.play_arrow_rounded,
+                                        color: AppColors.primary,
+                                        size: 19,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+
+                // Bottom Play All Action
+                if (items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(sheetCtx).pop();
+                          _playCuratedMix(context, items);
+                        },
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: Text(
+                          'Play Mix (${items.length} Titles)',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAllCuratedMixesSheet(BuildContext context, List<Map<String, dynamic>> mixes) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 20, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Curated For You',
+                            style: AppTypography.displayEditorial(
+                              fontSize: 22,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${mixes.length} mixes',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.border),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: mixes.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (ctx, idx) {
+                      final mix = mixes[idx];
+                      final items = (mix['items'] as List<MediaItem>?) ?? const [];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.of(sheetCtx).pop();
+                          _showCuratedMixSheet(context, mix);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryContainer,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            mix['badge'] as String,
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${items.length} titles',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.textTertiary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      mix['title'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      mix['subtitle'] as String,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
