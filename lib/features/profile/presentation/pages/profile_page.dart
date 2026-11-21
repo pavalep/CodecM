@@ -363,13 +363,13 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const Divider(height: 1, indent: 56, color: AppColors.border),
 
-          // 4. Gemma 2B LiteRT AI DJ Studio
+          // 4. Curated Mixes & Recommendations
           _buildHubTile(
             icon: Icons.auto_awesome_rounded,
             iconBg: const Color(0xFFE0E7FF),
             iconColor: const Color(0xFF4F46E5),
-            title: 'Gemma 2B LiteRT AI DJ Studio',
-            subtitle: 'On-device 256-D neural audio blend & cosine ranking',
+            title: 'Curated For You',
+            subtitle: 'Handpicked mixes & personalized recommendations',
             badgeCount: 0,
             onTap: () {
               Navigator.of(context).push(

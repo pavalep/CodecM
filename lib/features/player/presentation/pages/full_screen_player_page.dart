@@ -166,7 +166,7 @@ class FullScreenPlayerPage extends StatelessWidget {
                             const Icon(Icons.verified_outlined, color: AppColors.primary, size: 14),
                             const SizedBox(width: 5),
                             Text(
-                              'Semantic Match ${(ep.semanticMatchScore * 100).toInt()}%',
+                              'Recommended For You',
                               style: AppTypography.labelSm(color: AppColors.primary, fontSize: 11),
                             ),
                           ],

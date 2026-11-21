@@ -25,6 +25,7 @@ import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/player/presentation/pages/video_player_page.dart';
 import 'package:codecm/features/saved/presentation/pages/saved_page.dart';
 import 'package:codecm/features/library/presentation/pages/library_page.dart';
+import 'package:codecm/features/ai_dj/presentation/pages/ai_dj_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -170,6 +171,12 @@ class _HomeViewState extends State<_HomeView> {
 
                   // 6. PERSISTENT SECTION: "Saved Bookmarks"
                   _buildSavedBookmarksSection(context),
+
+                  // 6b. CURATED FOR YOU (On-Device Handpicked Mixes)
+                  _buildCuratedForYouSection(context, state, isLoading),
+
+                  // 6c. RECOMMENDED FOR YOU (Based on your taste)
+                  _buildRecommendedForYouSection(context, bestForYou, isLoading),
 
                   // 7. PUBLIC DOMAIN CINEMA & MOVIES
                   _buildFeaturedCinemaSection(context, movies, isLoading),
@@ -748,6 +755,368 @@ class _HomeViewState extends State<_HomeView> {
           ],
         );
       },
+    );
+  }
+
+  // 6b. CURATED FOR YOU (On-Device Handpicked Mixes - Zero Technical Jargon)
+  Widget _buildCuratedForYouSection(BuildContext context, HomeState state, bool isLoading) {
+    final music = state.popularMusic;
+    final movies = state.popularMovies;
+    final podcasts = state.trendingPodcasts
+        .map((p) => MediaRepository.podcastToMediaItem(p))
+        .toList();
+    final radio = state.popularRadio;
+    final audiobooks = state.popularAudiobooks;
+
+    final mixes = <Map<String, dynamic>>[
+      {
+        'badge': 'FOCUS',
+        'title': 'Afternoon Cadence',
+        'subtitle': 'Steady rhythms and cinema explorations tailored for deep focus.',
+        'items': <MediaItem>[...music.take(3), ...radio.take(2), ...audiobooks.take(1)],
+      },
+      {
+        'badge': 'CLASSIC FILM',
+        'title': 'Golden Age Cinema',
+        'subtitle': 'Preserved classics and timeless storytelling from the public archive.',
+        'items': <MediaItem>[...movies.take(5)],
+      },
+      {
+        'badge': 'DEEP DIVES',
+        'title': 'Evening Conversations',
+        'subtitle': 'Thoughtful long-form discussions, stories, and global broadcasts.',
+        'items': <MediaItem>[...podcasts.take(4), ...audiobooks.take(2)],
+      },
+      {
+        'badge': 'DISCOVERY',
+        'title': 'Fresh Horizons',
+        'subtitle': 'New independent releases and worldwide live radio stations.',
+        'items': <MediaItem>[...music.skip(2).take(3), ...radio.skip(1).take(3)],
+      },
+    ];
+
+    if (isLoading && music.isEmpty && movies.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text('Curated For You', style: AppTypography.headlineSm(fontSize: 17)),
+                ],
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AiDjPage()),
+                  );
+                },
+                child: Text(
+                  'All (${mixes.length})',
+                  style: AppTypography.labelLg(color: AppColors.primary, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 146,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: mixes.length,
+            separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final mix = mixes[index];
+              final items = mix['items'] as List<MediaItem>;
+              final count = items.isNotEmpty ? items.length : 6;
+
+              return GestureDetector(
+                onTap: () {
+                  if (items.isNotEmpty) {
+                    _playCuratedMix(context, items);
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AiDjPage()),
+                    );
+                  }
+                },
+                child: Container(
+                  width: 238,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              mix['badge'] as String,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$count titles',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textTertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        mix['title'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        mix['subtitle'] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.auto_awesome_rounded, size: 13, color: AppColors.primary),
+                              SizedBox(width: 4),
+                              Text(
+                                'Handpicked mix',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                  color: AppColors.textTertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 22),
+      ],
+    );
+  }
+
+  void _playCuratedMix(BuildContext context, List<MediaItem> items) {
+    if (items.isEmpty) return;
+    final first = items.first;
+    if (first.isVideo || first.kind == MediaKind.movie || first.kind == MediaKind.show) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VideoPlayerPage(item: first, playlist: items, initialIndex: 0),
+        ),
+      );
+      return;
+    }
+    final episodes = items
+        .where((m) => !m.isVideo)
+        .map((m) => MediaRepository.mediaItemToEpisode(m))
+        .toList();
+    if (episodes.isEmpty) return;
+    final bloc = context.read<PlayerBloc>();
+    bloc.add(ClearQueue());
+    bloc.add(PlayEpisode(episodes.first));
+    for (int i = 1; i < episodes.length; i++) {
+      bloc.add(AddToQueue(episodes[i]));
+    }
+  }
+
+  // 6c. RECOMMENDED FOR YOU ("Based on your taste" Horizontal Square Cards)
+  Widget _buildRecommendedForYouSection(
+    BuildContext context,
+    List<MediaItem> recommended,
+    bool isLoading,
+  ) {
+    if (!isLoading && recommended.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.favorite_border_rounded, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text('Recommended For You', style: AppTypography.headlineSm(fontSize: 17)),
+                ],
+              ),
+              const Text(
+                'Based on your taste',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        isLoading && recommended.isEmpty
+            ? const ShimmerCarouselSkeleton()
+            : SizedBox(
+                height: 156,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: recommended.length,
+                  separatorBuilder: (ctx, i) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final item = recommended[index];
+                    return GestureDetector(
+                      onTap: () => _playItem(context, item),
+                      child: SizedBox(
+                        width: 112,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    item.artworkUrl,
+                                    width: 112,
+                                    height: 112,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (ctx, err, stack) => Container(
+                                      width: 112,
+                                      height: 112,
+                                      color: AppColors.primaryContainer,
+                                      child: Icon(
+                                        item.isVideo
+                                            ? Icons.movie_outlined
+                                            : Icons.music_note_rounded,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 6,
+                                  top: 6,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.68),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      item.kind.displayName.toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 8.5,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              item.creator,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+        const SizedBox(height: 22),
+      ],
     );
   }
 

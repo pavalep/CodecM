@@ -374,7 +374,7 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
         const SizedBox(width: 8),
         _buildMetricCard(Icons.graphic_eq_rounded, 'Audio', '320k Lossless'),
         const SizedBox(width: 8),
-        _buildMetricCard(Icons.auto_awesome_rounded, 'Engine', 'LiteRT AI'),
+        _buildMetricCard(Icons.auto_awesome_rounded, 'Curated', 'For You'),
       ],
     );
   }

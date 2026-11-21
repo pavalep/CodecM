@@ -22,8 +22,6 @@ class _AiDjPageState extends State<AiDjPage> {
   final OnDeviceAiEngine _aiEngine = OnDeviceAiEngine.instance;
 
   bool _isLoading = true;
-  AiEngineStatus _status = const AiEngineStatus();
-  AiDjSynthesis? _synthesis;
   List<MediaItem> _dailyMix = [];
   List<MediaItem> _podcastBlend = [];
   List<MediaItem> _musicBlend = [];
@@ -51,7 +49,7 @@ class _AiDjPageState extends State<AiDjPage> {
   Future<void> _synthesizeLiveMix() async {
     setState(() => _isLoading = true);
 
-    final status = await _aiEngine.initialize();
+    await _aiEngine.initialize();
 
     final results = await Future.wait([
       _repository.getTrendingPodcasts(),
@@ -91,16 +89,14 @@ class _AiDjPageState extends State<AiDjPage> {
       queryContext: queryContext,
     );
 
-    final synthesis = await _aiEngine.generateDjSynthesis(
+    await _aiEngine.generateDjSynthesis(
       userTopics: _selectedTopics.toList(),
       liveCatalog: rankedAll,
     );
-    final latestStatus = await _aiEngine.refreshStatus();
+    await _aiEngine.refreshStatus();
 
     if (mounted) {
       setState(() {
-        _status = latestStatus.cachedVectors > 0 ? latestStatus : status;
-        _synthesis = synthesis;
         _dailyMix = rankedAll.take(6).toList();
         _podcastBlend = rankedPodcasts.take(5).toList();
         _musicBlend = rankedMusic.take(5).toList();
@@ -139,12 +135,12 @@ class _AiDjPageState extends State<AiDjPage> {
               )
             : null,
         title: Text(
-          'Gemma 2B LiteRT Studio',
+          'Curated For You',
           style: AppTypography.displayEditorial(fontSize: 22, color: AppColors.textPrimary),
         ),
         actions: [
           IconButton(
-            tooltip: 'Re-synthesize with Gemma 2B LiteRT',
+            tooltip: 'Refresh Mixes',
             icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
             onPressed: _isLoading ? null : _synthesizeLiveMix,
           ),
@@ -157,46 +153,9 @@ class _AiDjPageState extends State<AiDjPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Live Hardware & LiteRT Telemetry Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_status.modelName} • ${_status.delegate}',
-                        style: AppTypography.monoMetric(color: AppColors.primary, fontSize: 11.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      '${_status.latencyMs.toStringAsFixed(2)}ms • ${_status.embeddingDimension}-D',
-                      style: AppTypography.monoMetric(color: AppColors.textSecondary, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // 2. Topic Vector Calibration Chips
+              // 1. Mood & Topic Filter Chips
               Text(
-                'TUNE ON-DEVICE TASTE VECTOR',
+                'PERSONALIZE YOUR MIX',
                 style: AppTypography.labelSm(color: AppColors.textTertiary),
               ),
               const SizedBox(height: 8),
@@ -240,7 +199,7 @@ class _AiDjPageState extends State<AiDjPage> {
 
               const SizedBox(height: 18),
 
-              // 3. Hero Gemma-2B Neural Synthesis Card
+              // 3. Hero Handpicked Mix Card
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -262,7 +221,7 @@ class _AiDjPageState extends State<AiDjPage> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            'GOOGLE AI EDGE • LITERT 2B',
+                            'DAILY MIX',
                             style: AppTypography.labelSm(
                               color: AppColors.primary,
                               fontWeight: FontWeight.bold,
@@ -270,23 +229,22 @@ class _AiDjPageState extends State<AiDjPage> {
                           ),
                         ),
                         Text(
-                          '${_status.cachedVectors} vectors cached',
-                          style: AppTypography.monoMetric(
+                          '${_dailyMix.length} titles',
+                          style: AppTypography.bodySm(
                             color: AppColors.textTertiary,
-                            fontSize: 10.5,
+                            fontSize: 11.5,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _synthesis?.headline ?? 'Synthesizing Live Neural Audio Blend...',
+                      'Afternoon Cadence',
                       style: AppTypography.headlineSm(fontSize: 20),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _synthesis?.narrative ??
-                          'Computing 256-D cosine affinity across live Jamendo, Radio Browser, PodcastIndex, and LibriVox catalogs on device...',
+                      'Steady rhythms, thoughtful stories, and cinema explorations tailored to your listening taste.',
                       style: AppTypography.bodyMd(color: AppColors.textSecondary, height: 1.45),
                     ),
                     const SizedBox(height: 18),
@@ -305,8 +263,8 @@ class _AiDjPageState extends State<AiDjPage> {
                             const SizedBox(width: 8),
                             Text(
                               _isLoading
-                                  ? 'Ranking Live Catalog...'
-                                  : 'Play Neural Mix (${_dailyMix.length} Live Tracks)',
+                                  ? 'Preparing Your Mix...'
+                                  : 'Play Handpicked Mix (${_dailyMix.length} Titles)',
                               style: AppTypography.labelLg(color: Colors.white, fontSize: 14),
                             ),
                           ],
@@ -319,26 +277,26 @@ class _AiDjPageState extends State<AiDjPage> {
 
               const SizedBox(height: 22),
 
-              // 4. Smart On-Device Blends built from Live API Results
-              Text('Smart Blends (On-Device Cosine Ranked)', style: AppTypography.headlineSm(fontSize: 17)),
+              // 4. Curated Playlists built from Live API Results
+              Text('Handpicked Mixes', style: AppTypography.headlineSm(fontSize: 17)),
               const SizedBox(height: 10),
 
               if (_isLoading)
                 const ShimmerListSkeleton(count: 3)
               else ...[
                 _buildSmartPlaylistTile(
-                  title: 'Live Music & Global Radio Blend',
+                  title: 'Live Music & Global Radio',
                   hosts: _musicBlend.map((m) => m.creator).take(3).join(', '),
-                  meta: '${_musicBlend.length} live streams • Ranked by Gemma 2B LiteRT',
-                  affinity: '98% Match',
+                  meta: '${_musicBlend.length} titles • Handpicked mix',
+                  affinity: 'For You',
                   items: _musicBlend,
                 ),
                 const SizedBox(height: 10),
                 _buildSmartPlaylistTile(
-                  title: 'High-Affinity Podcast & Spoken Feed',
+                  title: 'Evening Conversations & Stories',
                   hosts: _podcastBlend.map((m) => m.title).take(3).join(', '),
-                  meta: '${_podcastBlend.length} live shows • Ranked by Gemma 2B LiteRT',
-                  affinity: '95% Match',
+                  meta: '${_podcastBlend.length} titles • Handpicked mix',
+                  affinity: 'For You',
                   items: _podcastBlend,
                 ),
               ],
@@ -347,7 +305,7 @@ class _AiDjPageState extends State<AiDjPage> {
 
               // 5. Ranked Track Queue Preview
               if (_dailyMix.isNotEmpty) ...[
-                Text('Top Semantic Matches For You', style: AppTypography.headlineSm(fontSize: 17)),
+                Text('Recommended For You', style: AppTypography.headlineSm(fontSize: 17)),
                 const SizedBox(height: 10),
                 ListView.separated(
                   shrinkWrap: true,
