@@ -13,6 +13,7 @@ class MainActivity : AudioServiceActivity() {
     private val AI_CHANNEL = "com.app.codecm/gemma_litert"
 
     private var gemmaEngine: GemmaLiteRtEngine? = null
+    private var searchDbHelper: SearchDatabaseHelper? = null
     private val aiExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -40,18 +41,79 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        // 2. Gemma 2B LiteRT On-Device AI Engine MethodChannel
+        // 2. Gemma 2B LiteRT On-Device AI Engine & SQLite Search Suggestion MethodChannel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AI_CHANNEL).setMethodCallHandler { call, result ->
             val engine = gemmaEngine ?: GemmaLiteRtEngine(applicationContext).also { gemmaEngine = it }
+            val searchDb = searchDbHelper ?: SearchDatabaseHelper(applicationContext, engine).also { searchDbHelper = it }
 
             when (call.method) {
                 "initializeEngine" -> {
                     aiExecutor.execute {
                         try {
                             val status = engine.initializeRuntime()
+                            // Warm up SQLite database & pre-computed Gemma vectors
+                            searchDb.readableDatabase
                             runOnUiThread { result.success(status) }
                         } catch (e: Exception) {
                             runOnUiThread { result.error("INIT_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "getSearchSuggestions" -> {
+                    val prefix = call.argument<String>("prefix") ?: ""
+                    val kind = call.argument<String>("kind") ?: "all"
+                    val tasteContext = call.argument<String>("tasteContext") ?: ""
+                    val limit = call.argument<Int>("limit") ?: 8
+                    aiExecutor.execute {
+                        try {
+                            val bundle = searchDb.getSearchSuggestions(prefix, kind, tasteContext, limit)
+                            runOnUiThread { result.success(bundle) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SEARCH_SUGGEST_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "recordSearchQuery" -> {
+                    val query = call.argument<String>("query") ?: ""
+                    val kind = call.argument<String>("kind") ?: "all"
+                    aiExecutor.execute {
+                        try {
+                            val recent = searchDb.recordSearchQuery(query, kind)
+                            runOnUiThread { result.success(recent) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SEARCH_RECORD_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "getRecentSearches" -> {
+                    val limit = call.argument<Int>("limit") ?: 10
+                    aiExecutor.execute {
+                        try {
+                            val recent = searchDb.getRecentSearches(limit)
+                            runOnUiThread { result.success(recent) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SEARCH_RECENT_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "deleteRecentSearch" -> {
+                    val query = call.argument<String>("query") ?: ""
+                    aiExecutor.execute {
+                        try {
+                            val recent = searchDb.deleteRecentSearch(query)
+                            runOnUiThread { result.success(recent) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SEARCH_DELETE_ERROR", e.message, null) }
+                        }
+                    }
+                }
+                "clearRecentSearches" -> {
+                    aiExecutor.execute {
+                        try {
+                            searchDb.clearRecentSearches()
+                            runOnUiThread { result.success(true) }
+                        } catch (e: Exception) {
+                            runOnUiThread { result.error("SEARCH_CLEAR_ERROR", e.message, null) }
                         }
                     }
                 }
@@ -115,6 +177,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onDestroy() {
+        searchDbHelper?.close()
         gemmaEngine?.close()
         aiExecutor.shutdown()
         super.onDestroy()

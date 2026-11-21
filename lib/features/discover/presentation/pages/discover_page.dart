@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:codecm/core/services/search_suggestion_service.dart';
 import 'package:codecm/core/theme/app_colors.dart';
 import 'package:codecm/core/theme/app_typography.dart';
 import 'package:codecm/core/widgets/filter_sheet.dart';
@@ -23,6 +24,8 @@ class DiscoverPage extends StatefulWidget {
 class _DiscoverPageState extends State<DiscoverPage> {
   final MediaRepository _repository = MediaRepository();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final SearchSuggestionService _suggestionService = SearchSuggestionService.instance;
 
   final List<Map<String, dynamic>> _categories = const [
     {'title': 'All', 'kind': null},
@@ -37,17 +40,70 @@ class _DiscoverPageState extends State<DiscoverPage> {
   int _selectedCategoryIndex = 0;
   List<MediaItem> _items = [];
   bool _isLoading = true;
+  bool _showSuggestions = false;
+  List<SearchSuggestionItem> _recentSearches = [];
+  List<SearchSuggestionItem> _suggestions = [];
 
   @override
   void initState() {
     super.initState();
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus) {
+        setState(() => _showSuggestions = true);
+        _refreshSuggestions(_searchController.text);
+      }
+    });
+    _refreshSuggestions('');
     _loadCategoryData();
   }
 
   @override
   void dispose() {
+    _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshSuggestions(String prefix) async {
+    final selectedKind = _categories[_selectedCategoryIndex]['kind'] as MediaKind?;
+    final bundle = await _suggestionService.getSuggestions(
+      prefix: prefix,
+      kind: selectedKind,
+      limit: 6,
+    );
+    if (!mounted) return;
+    setState(() {
+      _recentSearches = bundle.recent;
+      _suggestions = bundle.suggestions;
+    });
+  }
+
+  Future<void> _commitDiscoverSearch(String query) async {
+    final clean = query.trim();
+    _searchFocusNode.unfocus();
+    setState(() => _showSuggestions = false);
+    if (_searchController.text != clean) {
+      _searchController.text = clean;
+      _searchController.selection = TextSelection.fromPosition(
+        TextPosition(offset: clean.length),
+      );
+    }
+    if (clean.length >= 2) {
+      final selectedKind = _categories[_selectedCategoryIndex]['kind'] as MediaKind?;
+      await _suggestionService.recordQuery(clean, kind: selectedKind);
+    }
+    await _loadCategoryData();
+  }
+
+  void _fillDiscoverSearch(String term) {
+    final filled = '$term ';
+    _searchController.text = filled;
+    _searchController.selection = TextSelection.fromPosition(
+      TextPosition(offset: filled.length),
+    );
+    _searchFocusNode.requestFocus();
+    setState(() => _showSuggestions = true);
+    _refreshSuggestions(term);
   }
 
   Future<void> _loadCategoryData() async {
@@ -112,6 +168,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     setState(() {
       _selectedCategoryIndex = index;
     });
+    _refreshSuggestions(_searchController.text);
     _loadCategoryData();
   }
 
@@ -199,7 +256,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(
+                      color: _searchFocusNode.hasFocus ? AppColors.primary : AppColors.border,
+                      width: _searchFocusNode.hasFocus ? 1.3 : 1.0,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -208,6 +268,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       Expanded(
                         child: TextField(
                           controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          textInputAction: TextInputAction.search,
                           style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
                           decoration: const InputDecoration(
                             hintText: 'Search podcasts, movies, music, radio...',
@@ -216,13 +278,24 @@ class _DiscoverPageState extends State<DiscoverPage> {
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
-                          onSubmitted: (_) => _loadCategoryData(),
+                          onTap: () {
+                            setState(() => _showSuggestions = true);
+                            _refreshSuggestions(_searchController.text);
+                          },
+                          onChanged: (val) {
+                            setState(() => _showSuggestions = true);
+                            _refreshSuggestions(val);
+                          },
+                          onSubmitted: _commitDiscoverSearch,
                         ),
                       ),
-                      if (_searchController.text.isNotEmpty)
+                      if (_searchController.text.isNotEmpty || _showSuggestions)
                         GestureDetector(
                           onTap: () {
                             _searchController.clear();
+                            _searchFocusNode.unfocus();
+                            setState(() => _showSuggestions = false);
+                            _refreshSuggestions('');
                             _loadCategoryData();
                           },
                           child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
@@ -270,6 +343,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
                   },
                 ),
               ),
+
+              if (_showSuggestions)
+                _buildInlineSuggestionPanel(context),
 
               const SizedBox(height: 16),
 
@@ -672,6 +748,93 @@ class _DiscoverPageState extends State<DiscoverPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInlineSuggestionPanel(BuildContext context) {
+    final queryPrefix = _searchController.text.trim();
+    final combined = <SearchSuggestionItem>[
+      if (queryPrefix.isEmpty) ..._recentSearches.take(3),
+      ..._suggestions.take(5),
+    ];
+
+    if (combined.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(combined.length, (index) {
+            final item = combined[index];
+            final isHistory = item.source == SearchSuggestionSource.history;
+            final isLast = index == combined.length - 1;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _commitDiscoverSearch(item.term),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isHistory ? Icons.history_rounded : Icons.search_rounded,
+                          size: 17,
+                          color: isHistory ? AppColors.textSecondary : AppColors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            item.term,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isHistory)
+                          GestureDetector(
+                            onTap: () async {
+                              await _suggestionService.deleteRecentQuery(item.term);
+                              _refreshSuggestions(_searchController.text);
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.close_rounded, size: 15, color: AppColors.textTertiary),
+                            ),
+                          ),
+                        const SizedBox(width: 2),
+                        GestureDetector(
+                          onTap: () => _fillDiscoverSearch(item.term),
+                          behavior: HitTestBehavior.opaque,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.north_west_rounded, size: 15, color: AppColors.textTertiary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  const Divider(height: 1, indent: 40, endIndent: 12, color: AppColors.border),
+              ],
+            );
+          }),
         ),
       ),
     );
