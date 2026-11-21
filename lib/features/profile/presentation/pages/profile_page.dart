@@ -295,8 +295,11 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          children: [
           // 1. Followed Podcasts & Subscriptions
           ValueListenableBuilder<List<Podcast>>(
             valueListenable: PersistentStorage.instance.followedPodcastsNotifier,
@@ -376,6 +379,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -434,8 +438,11 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          children: [
           // Audio Quality
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -530,6 +537,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -549,25 +557,29 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: catalogs.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final cat = entry.value;
-          return Column(
-            children: [
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                leading: Icon(cat['icon'] as IconData, size: 20, color: AppColors.primary),
-                title: Text(cat['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                subtitle: Text(cat['desc'] as String, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
-                trailing: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF10B981)),
-              ),
-              if (idx < catalogs.length - 1)
-                const Divider(height: 1, indent: 48, color: AppColors.border),
-            ],
-          );
-        }).toList(),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          children: catalogs.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final cat = entry.value;
+            return Column(
+              children: [
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                  leading: Icon(cat['icon'] as IconData, size: 20, color: AppColors.primary),
+                  title: Text(cat['name'] as String, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: Text(cat['desc'] as String, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                  trailing: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF10B981)),
+                ),
+                if (idx < catalogs.length - 1)
+                  const Divider(height: 1, indent: 48, color: AppColors.border),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }

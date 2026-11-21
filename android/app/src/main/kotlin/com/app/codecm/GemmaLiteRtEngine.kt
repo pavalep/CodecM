@@ -78,8 +78,6 @@ class GemmaLiteRtEngine(private val context: Context) {
                     val options = LlmInference.LlmInferenceOptions.builder()
                         .setModelPath(foundModel.absolutePath)
                         .setMaxTokens(512)
-                        .setTemperature(0.7f)
-                        .setTopK(40)
                         .build()
                     llmInference = LlmInference.createFromOptions(context, options)
                     isLlmWeightsLoaded = true
