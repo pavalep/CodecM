@@ -20,7 +20,7 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) {
       setState(() => _isLoading = false);
       if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       } else {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const AppShell()),
@@ -219,23 +219,58 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildGoogleIcon() {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: RichText(
-          text: const TextSpan(
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, fontFamily: 'Arial'),
-            children: [
-              TextSpan(text: 'G', style: TextStyle(color: Color(0xFF4285F4))),
-            ],
-          ),
-        ),
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(
+        painter: _GoogleVectorPainter(),
       ),
     );
   }
+}
+
+class _GoogleVectorPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.21;
+    final rect = Rect.fromLTWH(
+      stroke / 2,
+      stroke / 2,
+      size.width - stroke,
+      size.height - stroke,
+    );
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -2.4, 1.65, false, paint);
+
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, 2.35, 1.5, false, paint);
+
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.75, 1.65, false, paint);
+
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -0.15, 0.95, false, paint);
+
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromLTWH(
+        size.width * 0.50,
+        size.height * 0.41,
+        size.width * 0.46,
+        stroke * 0.92,
+      ),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

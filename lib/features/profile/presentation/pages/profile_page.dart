@@ -268,18 +268,37 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: ElevatedButton.icon(
-              onPressed: _navigateToLogin,
-              icon: const Icon(Icons.login_rounded, size: 18),
-              label: const Text('Sign In or Register', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          GestureDetector(
+            onTap: _navigateToLogin,
+            child: Container(
+              width: double.infinity,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const _GoogleLogoMark(size: 18),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -584,3 +603,70 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+
+class _GoogleLogoMark extends StatelessWidget {
+  final double size;
+  const _GoogleLogoMark({this.size = 18});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _GoogleLogoPainter(),
+      ),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.21;
+    final rect = Rect.fromLTWH(
+      stroke / 2,
+      stroke / 2,
+      size.width - stroke,
+      size.height - stroke,
+    );
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    // Red top arc
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -2.4, 1.65, false, paint);
+
+    // Yellow left arc
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, 2.35, 1.5, false, paint);
+
+    // Green bottom arc
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.75, 1.65, false, paint);
+
+    // Blue right arc & crossbar
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -0.15, 0.95, false, paint);
+
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(
+      Rect.fromLTWH(
+        size.width * 0.50,
+        size.height * 0.41,
+        size.width * 0.46,
+        stroke * 0.92,
+      ),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+

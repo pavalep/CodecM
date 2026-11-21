@@ -32,20 +32,38 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   int _activeTabIndex = 0;
   bool _isDescriptionExpanded = false;
   late bool _isFavorite;
+  late bool _isFollowingPodcast;
   List<Episode> _episodes = [];
   bool _isLoading = false;
 
   final List<String> _tabs = ['Overview', 'Content', 'Notes', 'Reviews'];
+
+  bool get _isPodcast => widget.item.kind == MediaKind.podcast;
 
   bool get _isVideo =>
       widget.item.lane == MediaLane.video ||
       widget.item.kind == MediaKind.show ||
       widget.item.kind == MediaKind.movie;
 
+  Podcast get _asPodcast => Podcast(
+        id: widget.item.id,
+        title: widget.item.title,
+        subtitle: widget.item.subtitle ?? widget.item.creator,
+        hosts: widget.item.creator,
+        artworkUrl: widget.item.artworkUrl,
+        description: widget.item.description,
+        rating: widget.item.rating,
+        reviewCount: widget.item.reviewCount,
+        episodeCount: widget.item.episodesCount,
+        categories: widget.item.tags.isNotEmpty ? widget.item.tags : [widget.item.category],
+        feedUrl: widget.item.streamUrl,
+      );
+
   @override
   void initState() {
     super.initState();
     _isFavorite = _repository.isBookmarked(widget.item.id);
+    _isFollowingPodcast = _repository.isFollowingPodcast(widget.item.id);
     _loadContent();
   }
 
@@ -93,9 +111,29 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
 
   void _toggleFavorite() {
     setState(() {
-      _repository.toggleBookmarkItem(widget.item);
-      _isFavorite = !_isFavorite;
+      if (_isPodcast) {
+        _repository.toggleFollowPodcast(_asPodcast);
+        _isFollowingPodcast = _repository.isFollowingPodcast(widget.item.id);
+      } else {
+        _repository.toggleBookmarkItem(widget.item);
+        _isFavorite = !_isFavorite;
+      }
     });
+  }
+
+  void _toggleEpisodeBookmark(Episode ep) {
+    final mediaItem = MediaRepository.episodeToMediaItem(ep);
+    setState(() {
+      _repository.toggleBookmarkItem(mediaItem);
+    });
+    final isSaved = _repository.isBookmarked(ep.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isSaved ? 'Bookmarked "${ep.title}"' : 'Removed from Saved Bookmarks'),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(milliseconds: 1400),
+      ),
+    );
   }
 
   Future<void> _playVideoContent() async {
@@ -206,7 +244,7 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Rating & Duration Row
+                        // Rating & Duration Row (+ Follow Podcast button for Podcasts)
                         Row(
                           children: [
                             const Icon(Icons.star_rounded, color: AppColors.amber, size: 16),
@@ -222,6 +260,39 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                             ),
                           ],
                         ),
+                        if (_isPodcast) ...[
+                          const SizedBox(height: 12),
+                          GestureDetector(
+                            onTap: _toggleFavorite,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: _isFollowingPodcast ? AppColors.primaryContainer : AppColors.primary,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.primary, width: 1),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isFollowingPodcast ? Icons.check_circle_rounded : Icons.add_rounded,
+                                    size: 16,
+                                    color: _isFollowingPodcast ? AppColors.primary : Colors.white,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _isFollowingPodcast ? 'Following Podcast' : 'Follow Podcast',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: _isFollowingPodcast ? AppColors.primary : Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -472,12 +543,16 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                           ),
                           const SizedBox(width: 12),
 
-                          // Actions Right: Favorite & Share
+                          // Actions Right: Follow (if Podcast) or Bookmark (if non-Podcast) & Share
                           Row(
                             children: [
                               _buildCircleActionButton(
-                                icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                                color: _isFavorite ? AppColors.error : AppColors.textPrimary,
+                                icon: _isPodcast
+                                    ? (_isFollowingPodcast ? Icons.rss_feed_rounded : Icons.add_rounded)
+                                    : (_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded),
+                                color: _isPodcast
+                                    ? (_isFollowingPodcast ? AppColors.primary : AppColors.textPrimary)
+                                    : (_isFavorite ? AppColors.error : AppColors.textPrimary),
                                 onTap: _toggleFavorite,
                               ),
                               const SizedBox(width: 10),
@@ -619,6 +694,8 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   }
 
   Widget _buildEpisodeItem(BuildContext context, Episode ep) {
+    final isEpBookmarked = _repository.isBookmarked(ep.id);
+
     return GestureDetector(
       onTap: () => _playContent(ep),
       child: Container(
@@ -671,7 +748,23 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
+            // Individual episode/segment Bookmark button
+            GestureDetector(
+              onTap: () => _toggleEpisodeBookmark(ep),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                child: Icon(
+                  isEpBookmarked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: isEpBookmarked ? AppColors.error : AppColors.textTertiary,
+                  size: 19,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             Container(
               width: 32,
               height: 32,
