@@ -1,15 +1,16 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import '../config/app_env.dart';
 import '../utils/html_utils.dart';
 import '../../features/player/domain/models/podcast.dart';
 import '../../features/player/domain/models/episode.dart';
 
 class PodcastIndexAdapter {
   static const String _baseUrl = 'https://api.podcastindex.org/api/1.0';
-  static const String _apiKey = 'GJNMHDZ35CNYGBFUWK3L';
-  static const String _apiSecret = 'KGmdWuuQ8fPANPt#yVAxNJzCScaw\$Ae8k6wrGSx#';
-  static const String _userAgent = 'SimbaMediaPlayer/1.0.0 (paval@simba.app)';
+  static const String _apiKey = AppEnv.podcastIndexApiKey;
+  static const String _apiSecret = AppEnv.podcastIndexApiSecret;
+  static const String _userAgent = 'CodecMMediaPlayer/1.0.0 (pavalep@gmail.com)';
 
   final http.Client _client;
 

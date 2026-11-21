@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:codecm/core/theme/app_colors.dart';
 import 'package:codecm/features/home/presentation/pages/home_page.dart';
 import 'package:codecm/features/discover/presentation/pages/discover_page.dart';

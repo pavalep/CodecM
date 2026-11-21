@@ -1,12 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:codecm/features/player/domain/models/episode.dart';
 import 'package:codecm/features/player/presentation/bloc/player_bloc.dart';
 import 'package:codecm/features/player/presentation/bloc/player_event.dart';
 import 'package:codecm/features/player/presentation/bloc/player_state.dart';
 import 'package:codecm/core/services/on_device_ai_engine.dart';
 
 void main() {
-  group('PlayerBloc Clean Architecture State Management Tests', () {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('PlayerBloc & OnDeviceAiEngine (Gemma 2B LiteRT) Tests', () {
     late PlayerBloc playerBloc;
+
+    const sampleLiveEpisode = Episode(
+      id: 'ep-live-101',
+      title: 'Frontier Neural Architectures & On-Device LiteRT',
+      showTitle: 'Open AI Edge Feed',
+      host: 'CodecM Live Stream',
+      durationString: '42m',
+      totalDuration: Duration(minutes: 42),
+      artworkUrl: 'https://archive.org/services/img/feature_films',
+      description: 'Deep technical discussion on 4-bit quantized Gemma 2B models running on mobile NPUs.',
+      publishedDate: 'Today',
+    );
 
     setUp(() {
       playerBloc = PlayerBloc(enableNativeAudio: false);
@@ -16,22 +31,38 @@ void main() {
       playerBloc.close();
     });
 
-    test('initial state has default Acquired episode and is playing', () {
-      expect(playerBloc.state.isPlaying, isTrue);
-      expect(playerBloc.state.currentEpisode.title, contains('NVIDIA'));
-      expect(playerBloc.state.speed, equals(1.2));
+    test('initial state starts clean with empty episode and PlaybackStatus.initial', () {
+      expect(playerBloc.state.status, equals(PlaybackStatus.initial));
+      expect(playerBloc.state.isPlaying, isFalse);
+      expect(playerBloc.state.currentEpisode, equals(Episode.empty));
+      expect(playerBloc.state.speed, equals(1.0));
       expect(playerBloc.state.isSmartAutoplayEnabled, isTrue);
     });
 
-    test('TogglePlayPause toggles playback state to paused', () async {
-      expect(playerBloc.state.isPlaying, isTrue);
-
+    test('PlayEpisode scores semantic affinity and transitions to playing', () async {
       final expectation = expectLater(
+        playerBloc.stream,
+        emits(predicate<PlayerState>((state) =>
+            state.isPlaying &&
+            state.currentEpisode.id == sampleLiveEpisode.id &&
+            state.currentEpisode.semanticMatchScore >= 0.68)),
+      );
+      playerBloc.add(const PlayEpisode(sampleLiveEpisode));
+      await expectation;
+    });
+
+    test('TogglePlayPause toggles playback state between playing and paused', () async {
+      playerBloc.add(const PlayEpisode(sampleLiveEpisode));
+      await expectLater(
+        playerBloc.stream,
+        emits(predicate<PlayerState>((state) => state.isPlaying == true)),
+      );
+
+      playerBloc.add(TogglePlayPause());
+      await expectLater(
         playerBloc.stream,
         emits(predicate<PlayerState>((state) => state.isPlaying == false)),
       );
-      playerBloc.add(TogglePlayPause());
-      await expectation;
     });
 
     test('ChangePlaybackSpeed updates speed to 1.5x', () async {
@@ -43,13 +74,12 @@ void main() {
       await expectation;
     });
 
-    test('AddToQueue enqueues episode and ClearQueue flushes it', () async {
-      final ep = OnDeviceAiEngine.predictedSmartAutoplay;
+    test('AddToQueue enqueues episode, ClearQueue flushes it, and StopPlayback resets player', () async {
       final expectationAdd = expectLater(
         playerBloc.stream,
-        emits(predicate<PlayerState>((state) => state.queue.contains(ep))),
+        emits(predicate<PlayerState>((state) => state.queue.contains(sampleLiveEpisode))),
       );
-      playerBloc.add(AddToQueue(ep));
+      playerBloc.add(const AddToQueue(sampleLiveEpisode));
       await expectationAdd;
 
       final expectationClear = expectLater(
@@ -58,6 +88,25 @@ void main() {
       );
       playerBloc.add(ClearQueue());
       await expectationClear;
+
+      final expectationStop = expectLater(
+        playerBloc.stream,
+        emits(predicate<PlayerState>((state) => state.status == PlaybackStatus.stopped)),
+      );
+      playerBloc.add(StopPlayback());
+      await expectationStop;
+    });
+
+    test('OnDeviceAiEngine computes normalized 256-D embeddings and cosine similarity', () {
+      final ai = OnDeviceAiEngine.instance;
+      final vecA = ai.computeLocalEmbedding('Gemma 2B LiteRT neural network artificial intelligence');
+      final vecB = ai.computeLocalEmbedding('Artificial intelligence neural model on-device inference');
+      final vecC = ai.computeLocalEmbedding('Classic silent comedy film festival');
+
+      expect(vecA.length, equals(256));
+      final simRelated = ai.computeLocalCosineSimilarity(vecA, vecB);
+      final simUnrelated = ai.computeLocalCosineSimilarity(vecA, vecC);
+      expect(simRelated, greaterThan(simUnrelated));
     });
   });
 }

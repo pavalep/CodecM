@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.codecm"
+    namespace = "com.app.codecm"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,14 +15,15 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.codecm"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        applicationId = "com.app.codecm"
+        minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    androidResources {
+        noCompress += listOf("tflite", "bin", "task", "litertlm")
     }
 
     buildTypes {
@@ -43,3 +44,12 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Google AI Edge LiteRT (On-Device Neural Runtime & GPU/NPU Acceleration)
+    implementation("com.google.ai.edge.litert:litert:1.0.1")
+    implementation("com.google.ai.edge.litert:litert-gpu:1.0.1")
+    // Google MediaPipe Tasks GenAI (On-Device Gemma-2B-IT LiteRT LLM Engine)
+    implementation("com.google.mediapipe:tasks-genai:0.10.20")
+}
+

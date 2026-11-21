@@ -6,6 +6,7 @@ import '../../../../core/api/librivox_adapter.dart';
 import '../../../../core/api/iptv_adapter.dart';
 import '../../../../core/api/weather_adapter.dart';
 import '../../../../core/api/internet_archive_adapter.dart';
+import '../../../../core/services/on_device_ai_engine.dart';
 import '../../../player/domain/models/podcast.dart';
 import '../../../player/domain/models/episode.dart';
 import '../../domain/models/media_item.dart';
@@ -194,13 +195,13 @@ class MediaRepository {
     return combined;
   }
 
-  // Episodes for Podcast
+  // Episodes for Podcast (Scored by On-Device Gemma 2B LiteRT)
   Future<List<Episode>> getEpisodesForPodcast(Podcast podcast) async {
     final feedIdInt = int.tryParse(podcast.id);
     if (feedIdInt != null) {
       final liveEpisodes = await _podcastAdapter.getEpisodesByFeedId(feedIdInt, max: 25);
       if (liveEpisodes.isNotEmpty) {
-        return liveEpisodes;
+        return OnDeviceAiEngine.instance.scoreEpisodes(liveEpisodes);
       }
     }
     return [];

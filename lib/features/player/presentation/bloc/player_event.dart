@@ -82,3 +82,6 @@ class PlayNextTrack extends PlayerEvent {}
 class PlayPreviousTrack extends PlayerEvent {}
 
 class ToggleAutoplaySmartAI extends PlayerEvent {}
+
+class StopPlayback extends PlayerEvent {}
+

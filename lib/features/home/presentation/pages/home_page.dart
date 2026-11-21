@@ -25,6 +25,7 @@ import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/player/presentation/pages/video_player_page.dart';
 import 'package:codecm/features/saved/presentation/pages/saved_page.dart';
 import 'package:codecm/features/library/presentation/pages/library_page.dart';
+import 'package:codecm/features/ai_dj/presentation/pages/ai_dj_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -194,7 +195,7 @@ class _HomeViewState extends State<_HomeView> {
 
   // 1. Sleek, minimal Google M3 Top App Bar (Wordmark + Live Weather underneath + Filter)
   Widget _buildCleanHeader(BuildContext context, HomeState state) {
-    final weatherSummary = state.weather?.summary ?? '10°C • Partly cloudy';
+    final weatherSummary = state.weather?.summary ?? 'Live Weather...';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
@@ -310,9 +311,10 @@ class _HomeViewState extends State<_HomeView> {
     return button;
   }
 
-  // 2. Category Quick Rail (6 modules)
+  // 2. Category Quick Rail (7 modules including Gemma 2B AI DJ Studio)
   Widget _buildCategoryRail(BuildContext context) {
     final categories = [
+      {'title': 'AI DJ Studio', 'icon': Icons.auto_awesome_rounded, 'page': const AiDjPage()},
       {'title': 'Movies', 'icon': Icons.movie_creation_outlined, 'page': const MoviesPage()},
       {'title': 'TV Shows', 'icon': Icons.tv_rounded, 'page': const ShowsPage()},
       {'title': 'Music', 'icon': Icons.music_note_rounded, 'page': const MusicPage()},

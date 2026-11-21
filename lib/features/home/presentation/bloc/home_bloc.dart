@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:codecm/core/services/on_device_ai_engine.dart';
 import 'package:codecm/features/media/data/repositories/media_repository.dart';
 import 'package:codecm/features/media/domain/models/media_item.dart';
 import 'home_event.dart';
@@ -37,16 +38,15 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final shows = results[5] as List<MediaItem>;
       final audiobooks = results[6] as List<MediaItem>;
 
-      // Construct "Best for you" editorial mix from real items across all lanes
-      final List<MediaItem> bestForYou = [];
-      if (movies.isNotEmpty) bestForYou.add(movies.first);
-      if (music.isNotEmpty) bestForYou.add(music.first);
-      if (radio.isNotEmpty) bestForYou.add(radio.first);
-      if (shows.isNotEmpty) bestForYou.add(shows.first);
-      if (audiobooks.isNotEmpty) bestForYou.add(audiobooks.first);
-      if (movies.length > 1) bestForYou.add(movies[1]);
-      if (music.length > 1) bestForYou.add(music[1]);
-      if (radio.length > 1) bestForYou.add(radio[1]);
+      // Construct "Best for you" from real items across all lanes, ranked by On-Device Gemma 2B LiteRT
+      final List<MediaItem> candidates = [
+        ...movies.take(3),
+        ...music.take(3),
+        ...radio.take(2),
+        ...shows.take(2),
+        ...audiobooks.take(2),
+      ];
+      final bestForYou = await OnDeviceAiEngine.instance.rankMediaItems(candidates);
 
       emit(state.copyWith(
         status: HomeStatus.loaded,

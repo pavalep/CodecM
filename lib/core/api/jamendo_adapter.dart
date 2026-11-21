@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/app_env.dart';
 import '../../features/media/domain/models/media_item.dart';
 
 class JamendoAdapter {
   static const String _baseUrl = 'https://api.jamendo.com/v3.0';
-  static const String _clientId = '79650c43';
+  static const String _clientId = AppEnv.jamendoClientId;
 
   final http.Client _client;
 

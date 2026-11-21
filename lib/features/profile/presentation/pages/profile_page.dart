@@ -5,6 +5,7 @@ import 'package:codecm/core/storage/persistent_storage.dart';
 import 'package:codecm/features/auth/presentation/pages/login_page.dart';
 import 'package:codecm/features/library/presentation/pages/library_page.dart';
 import 'package:codecm/features/saved/presentation/pages/saved_page.dart';
+import 'package:codecm/features/ai_dj/presentation/pages/ai_dj_page.dart';
 import 'package:codecm/features/media/domain/models/media_item.dart';
 import 'package:codecm/features/player/domain/models/podcast.dart';
 
@@ -164,7 +165,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       const SizedBox(height: 2),
                       const Text(
-                        'paval@simba.app',
+                        'pavalep@gmail.com',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
                       const SizedBox(height: 4),
@@ -359,17 +360,17 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const Divider(height: 1, indent: 56, color: AppColors.border),
 
-          // 4. Offline Downloads
+          // 4. Gemma 2B LiteRT AI DJ Studio
           _buildHubTile(
-            icon: Icons.download_done_rounded,
+            icon: Icons.auto_awesome_rounded,
             iconBg: const Color(0xFFE0E7FF),
             iconColor: const Color(0xFF4F46E5),
-            title: 'Offline Downloads',
-            subtitle: '0 items • Ready for offline playback',
+            title: 'Gemma 2B LiteRT AI DJ Studio',
+            subtitle: 'On-device 256-D neural audio blend & cosine ranking',
             badgeCount: 0,
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Offline downloads ready. Add episodes to listen offline.')),
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AiDjPage()),
               );
             },
           ),

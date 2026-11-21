@@ -38,7 +38,7 @@ enum VideoAspectRatioMode {
 }
 
 class _VideoPlayerPageState extends State<VideoPlayerPage> with WidgetsBindingObserver {
-  static const MethodChannel _pipChannel = MethodChannel('com.example.codecm/pip');
+  static const MethodChannel _pipChannel = MethodChannel('com.app.codecm/pip');
   final MediaRepository _repository = MediaRepository();
 
   VideoPlayerController? _controller;

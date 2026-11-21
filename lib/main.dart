@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'core/theme/app_theme.dart';
 import 'core/storage/persistent_storage.dart';
+import 'core/services/on_device_ai_engine.dart';
 import 'features/player/presentation/bloc/player_bloc.dart';
 import 'features/splash/presentation/pages/splash_screen.dart';
 
@@ -17,10 +18,17 @@ Future<void> main() async {
     debugPrint('PersistentStorage initialization error: $e');
   }
 
+  // Initialize On-Device Gemma 2B LiteRT AI Engine
+  try {
+    await OnDeviceAiEngine.instance.initialize();
+  } catch (e) {
+    debugPrint('OnDeviceAiEngine initialization error: $e');
+  }
+
   // Initialize Android media playback notification service
   try {
     await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.example.codecm.channel.audio',
+      androidNotificationChannelId: 'com.app.codecm.channel.audio',
       androidNotificationChannelName: 'CodecM Audio Playback',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,

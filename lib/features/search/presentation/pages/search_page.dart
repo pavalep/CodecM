@@ -43,14 +43,8 @@ class _SearchPageState extends State<SearchPage> {
     'sort': ['relevance'],
   };
 
-  // Recent searches stored in memory & persistent
-  final List<String> _recentSearches = [
-    'Charlie Chaplin',
-    'Acquired',
-    'Christmas FM',
-    'Monte Cristo',
-    'Tech News',
-  ];
+  // Recent searches stored dynamically as the user searches
+  final List<String> _recentSearches = [];
 
   final List<Map<String, dynamic>> _scopeTabs = [
     {'label': 'All', 'kind': null},

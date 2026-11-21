@@ -39,41 +39,7 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
   void initState() {
     super.initState();
     _isFollowing = _repository.isFollowing(widget.podcast.id);
-    _episodes = PodcastRepository.seedCuratedEpisodes
-        .where((e) =>
-            e.showTitle.toLowerCase().contains(widget.podcast.title.toLowerCase()) ||
-            widget.podcast.title.toLowerCase().contains(e.showTitle.toLowerCase()))
-        .toList();
-    if (_episodes.isEmpty) {
-      _episodes = [
-        Episode(
-          id: 'ep-${widget.podcast.id}-1',
-          title: '${widget.podcast.title}: State of the Art & New Frontiers',
-          showTitle: widget.podcast.title,
-          host: widget.podcast.hosts,
-          durationString: '48m',
-          totalDuration: const Duration(minutes: 48),
-          artworkUrl: widget.podcast.artworkUrl,
-          description: 'Comprehensive breakdown and expert analysis of key industry developments.',
-          publishedDate: '2 days ago',
-          audioUrl: 'https://traffic.libsyn.com/acquired/acquired-nvidia-preview.mp3',
-          semanticMatchScore: 0.97,
-        ),
-        Episode(
-          id: 'ep-${widget.podcast.id}-2',
-          title: '${widget.podcast.title}: Foundation Systems and Scaling',
-          showTitle: widget.podcast.title,
-          host: widget.podcast.hosts,
-          durationString: '1h 05m',
-          totalDuration: const Duration(hours: 1, minutes: 5),
-          artworkUrl: widget.podcast.artworkUrl,
-          description: 'A deep exploration into system architecture, design decisions, and tradeoffs.',
-          publishedDate: '1 week ago',
-          audioUrl: 'https://traffic.libsyn.com/dwarkesh/dwarkesh-sholto.mp3',
-          semanticMatchScore: 0.94,
-        ),
-      ];
-    }
+    _episodes = List<Episode>.from(widget.podcast.episodes);
     _loadEpisodes();
   }
 
@@ -82,7 +48,7 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
     final list = await _repository.getEpisodesForPodcast(widget.podcast);
     if (mounted) {
       setState(() {
-        if (list.isNotEmpty) _episodes = list;
+        _episodes = list;
         _isLoadingEpisodes = false;
       });
     }
@@ -508,20 +474,7 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
   }
 
   Widget _buildStickyBottomBar(BuildContext context) {
-    final firstEpisode = _episodes.isNotEmpty
-        ? _episodes.first
-        : Episode(
-            id: 'default-${widget.podcast.id}',
-            title: '${widget.podcast.title} Latest',
-            showTitle: widget.podcast.title,
-            host: widget.podcast.hosts,
-            durationString: '48m',
-            totalDuration: const Duration(minutes: 48),
-            artworkUrl: widget.podcast.artworkUrl,
-            description: widget.podcast.description,
-            publishedDate: 'Today',
-            audioUrl: 'https://traffic.libsyn.com/acquired/acquired-nvidia-preview.mp3',
-          );
+    final firstEpisode = _episodes.firstOrNull;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -556,26 +509,28 @@ class _PodcastDetailsPageState extends State<PodcastDetailsPage> {
               ],
             ),
             GestureDetector(
-              onTap: () {
-                context.read<PlayerBloc>().add(PlayEpisode(firstEpisode));
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const FullScreenPlayerPage()),
-                );
-              },
+              onTap: firstEpisode == null
+                  ? null
+                  : () {
+                      context.read<PlayerBloc>().add(PlayEpisode(firstEpisode));
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const FullScreenPlayerPage()),
+                      );
+                    },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: firstEpisode == null ? AppColors.textTertiary : AppColors.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Text(
-                      'Start listening',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
+                      _isLoadingEpisodes ? 'Loading feed...' : 'Start listening',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5),
                     ),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
                   ],
                 ),
               ),
