@@ -33,14 +33,13 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
   bool _isDescriptionExpanded = false;
   late bool _isFavorite;
   late bool _isFollowingPodcast;
+  late bool _isResolvedPodcastShow;
   List<Episode> _episodes = [];
   bool _isLoading = false;
 
   final List<String> _tabs = ['Overview', 'Content', 'Notes', 'Reviews'];
 
-  bool get _isPodcast =>
-      widget.item.kind == MediaKind.podcast &&
-      (widget.item.rawMetadata.containsKey('feedId') || widget.item.episodesCount > 1);
+  bool get _isPodcast => _isResolvedPodcastShow;
 
   bool get _isVideo =>
       widget.item.lane == MediaLane.video ||
@@ -56,7 +55,9 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
         description: widget.item.description,
         rating: widget.item.rating,
         reviewCount: widget.item.reviewCount,
-        episodeCount: widget.item.episodesCount,
+        episodeCount: _episodes.length > widget.item.episodesCount
+            ? _episodes.length
+            : widget.item.episodesCount,
         categories: widget.item.tags.isNotEmpty ? widget.item.tags : [widget.item.category],
         feedUrl: widget.item.streamUrl,
       );
@@ -66,12 +67,15 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
     super.initState();
     _isFavorite = _repository.isBookmarked(widget.item.id);
     _isFollowingPodcast = _repository.isFollowingPodcast(widget.item.id);
+    _isResolvedPodcastShow = widget.item.kind == MediaKind.podcast &&
+        widget.item.rawMetadata['isEpisode'] != true;
     _loadContent();
   }
 
   Future<void> _loadContent() async {
     setState(() => _isLoading = true);
-    if (widget.item.kind == MediaKind.podcast) {
+    if (widget.item.kind == MediaKind.podcast &&
+        widget.item.rawMetadata['isEpisode'] != true) {
       final podcast = Podcast(
         id: widget.item.id,
         title: widget.item.title,
@@ -84,14 +88,21 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
         episodeCount: widget.item.episodesCount,
       );
       final eps = await _repository.getEpisodesForPodcast(podcast);
-      if (mounted) {
+      if (mounted && eps.isNotEmpty) {
         setState(() {
           _episodes = eps;
+          _isResolvedPodcastShow = true;
           _isLoading = false;
         });
+        return;
       }
-    } else {
+    }
+    if (mounted) {
       setState(() {
+        if (widget.item.kind == MediaKind.podcast &&
+            (widget.item.rawMetadata['isEpisode'] == true || _episodes.isEmpty)) {
+          _isResolvedPodcastShow = false;
+        }
         _episodes = [
           Episode(
             id: widget.item.id,
@@ -99,7 +110,11 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
             showTitle: widget.item.creator,
             host: widget.item.creator,
             durationString: widget.item.durationString,
-            totalDuration: Duration(seconds: widget.item.durationSeconds > 0 ? widget.item.durationSeconds : 180),
+            totalDuration: Duration(
+              seconds: widget.item.durationSeconds > 0
+                  ? widget.item.durationSeconds
+                  : 180,
+            ),
             artworkUrl: widget.item.artworkUrl,
             description: widget.item.description,
             publishedDate: widget.item.publishedDate ?? 'Now Live',
@@ -390,7 +405,11 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                             _buildMetricCard(Icons.stream_rounded, 'Protocol', 'HLS Stream'),
                           ]
                         : [
-                            _buildMetricCard(Icons.podcasts_rounded, widget.item.kind.displayName, '${widget.item.episodesCount} total'),
+                            _buildMetricCard(
+                              Icons.podcasts_rounded,
+                              widget.item.kind.displayName,
+                              '${_episodes.length > widget.item.episodesCount ? _episodes.length : widget.item.episodesCount} total',
+                            ),
                             const SizedBox(width: 8),
                             _buildMetricCard(Icons.access_time_rounded, 'Duration', widget.item.durationString),
                             const SizedBox(width: 8),
@@ -548,15 +567,53 @@ class _MediaDetailPageState extends State<MediaDetailPage> {
                           // Actions Right: Follow (if Podcast) or Bookmark (if non-Podcast) & Share
                           Row(
                             children: [
-                              _buildCircleActionButton(
-                                icon: _isPodcast
-                                    ? (_isFollowingPodcast ? Icons.rss_feed_rounded : Icons.add_rounded)
-                                    : (_isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded),
-                                color: _isPodcast
-                                    ? (_isFollowingPodcast ? AppColors.primary : AppColors.textPrimary)
-                                    : (_isFavorite ? AppColors.error : AppColors.textPrimary),
-                                onTap: _toggleFavorite,
-                              ),
+                              if (_isPodcast)
+                                GestureDetector(
+                                  onTap: _toggleFavorite,
+                                  child: Container(
+                                    height: 38,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: _isFollowingPodcast ? AppColors.primary : Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: _isFollowingPodcast ? AppColors.primary : AppColors.border,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isFollowingPodcast ? Icons.check_rounded : Icons.add_rounded,
+                                          color: _isFollowingPodcast ? Colors.white : AppColors.primary,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _isFollowingPodcast ? 'Following' : 'Follow',
+                                          style: TextStyle(
+                                            color: _isFollowingPodcast ? Colors.white : AppColors.primary,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                _buildCircleActionButton(
+                                  icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                  color: _isFavorite ? AppColors.error : AppColors.textPrimary,
+                                  onTap: _toggleFavorite,
+                                ),
                               const SizedBox(width: 10),
                               _buildCircleActionButton(
                                 icon: Icons.share_outlined,

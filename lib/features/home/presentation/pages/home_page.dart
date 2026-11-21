@@ -550,7 +550,7 @@ class _HomeViewState extends State<_HomeView> {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 100,
+              height: 80,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -561,12 +561,17 @@ class _HomeViewState extends State<_HomeView> {
                   return GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => PodcastDetailsPage(podcast: pod)),
+                        MaterialPageRoute(
+                          builder: (_) => MediaDetailPage(
+                            item: MediaRepository.podcastToMediaItem(pod),
+                          ),
+                        ),
                       );
                     },
                     child: SizedBox(
                       width: 68,
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
@@ -598,7 +603,7 @@ class _HomeViewState extends State<_HomeView> {
                 },
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
           ],
         );
       },

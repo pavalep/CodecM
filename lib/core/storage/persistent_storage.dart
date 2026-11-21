@@ -281,8 +281,11 @@ class PersistentStorage {
         'rating': item.rating,
         'reviewCount': item.reviewCount,
         'category': item.category,
+        'tags': item.tags,
+        'episodesCount': item.episodesCount,
         'publishedDate': item.publishedDate,
         'subtitle': item.subtitle,
+        'rawMetadata': item.rawMetadata,
       };
 
   MediaItem _mediaItemFromJson(Map<String, dynamic> json) => MediaItem(
@@ -300,8 +303,13 @@ class PersistentStorage {
         rating: (json['rating'] as num?)?.toDouble() ?? 4.8,
         reviewCount: json['reviewCount'] as String? ?? '1K',
         category: json['category'] as String? ?? 'General',
+        tags: (json['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        episodesCount: (json['episodesCount'] as num?)?.toInt() ?? 1,
         publishedDate: json['publishedDate'] as String?,
         subtitle: json['subtitle'] as String?,
+        rawMetadata: (json['rawMetadata'] is Map)
+            ? Map<String, dynamic>.from(json['rawMetadata'] as Map)
+            : const {},
       );
 
   Map<String, dynamic> _podcastToJson(Podcast p) => {

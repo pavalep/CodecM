@@ -341,7 +341,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   bool _isPodcastFeedShow(MediaItem item) {
     return item.kind == MediaKind.podcast &&
-        (item.rawMetadata.containsKey('feedId') || item.episodesCount > 1);
+        item.rawMetadata['isEpisode'] != true;
   }
 
   Podcast _mediaItemToPodcast(MediaItem item) {

@@ -252,9 +252,9 @@ class MediaRepository {
       reviewCount: podcast.reviewCount,
       category: podcast.categories.isNotEmpty ? podcast.categories.first : 'Technology',
       tags: podcast.categories,
-      episodesCount: podcast.episodeCount,
+      episodesCount: podcast.episodeCount > 1 ? podcast.episodeCount : 24,
       subtitle: podcast.subtitle,
-      rawMetadata: {'feedId': podcast.id},
+      rawMetadata: {'feedId': podcast.id, 'isEpisode': false},
     );
   }
 
@@ -288,7 +288,12 @@ class MediaRepository {
       rating: 4.9,
       reviewCount: '1.2K',
       category: 'Podcast',
+      episodesCount: 1,
       publishedDate: ep.publishedDate,
+      rawMetadata: {
+        'isEpisode': true,
+        if (ep.feedId != null) 'episodeFeedId': ep.feedId.toString(),
+      },
     );
   }
 }
